@@ -184,6 +184,8 @@
   .kpi .v.good{color:var(--good);} .kpi .v.warn{color:var(--warn);} .kpi .v.bad{color:var(--bad);} .kpi .v.neutral{color:var(--text);}
   .kpi .l{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.3;}
   .kpi .s{font-size:10.5px;color:var(--muted-2);margin-top:2px;}
+  .kpi .trend-badge{position:absolute;top:9px;right:10px;font-size:11px;font-weight:700;color:var(--muted);opacity:.9;line-height:1;}
+  .kpi .trend-badge:empty{display:none;}
 
   /* KPI detail modal */
   .modal-overlay{

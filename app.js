@@ -672,6 +672,7 @@ async function refreshAll(){
 
     latestRaw.stock = stockRes.data; latestRaw.logistics = logRes.data; latestRaw.fefo = fefoRes.data; latestRaw.warehouse = whRes.data;
     latestStatus.stock = stockRes.status; latestStatus.logistics = logRes.status; latestStatus.fefo = fefoRes.status; latestStatus.warehouse = whRes.status;
+    applyTrendIndicators();
     recordHistory();
     if(document.getElementById('kpiModalOverlay').classList.contains('open') && activeKpiKey){
       if(activeKpiKey === '__combined') openCombinedScoreModal();
@@ -685,6 +686,56 @@ async function refreshAll(){
 function manualRefresh(){ refreshAll(); }
 
 let activeKpiKey = null;
+
+// Beberapa DOM id KPI tidak mengikuti pola "kpi-"+key persis (hyphen dibuang
+// di beberapa tempat pada HTML lama) — daftar pengecualian didaftarkan di sini
+// supaya badge tren tetap menempel ke elemen yang benar.
+const KPI_DOM_ID_OVERRIDES = {
+  'fefo-today-volume': 'kpi-fefo-todayvolume'
+};
+function domIdForKey(key){
+  return KPI_DOM_ID_OVERRIDES[key] || ('kpi-' + key);
+}
+
+// Indikator ▲/▼ per kartu KPI: membandingkan nilai HASIL REFRESH SEKARANG
+// dengan nilai pada refresh SEBELUMNYA (dari kpiHistory yang sudah dipakai
+// untuk sparkline) — jadi murni arah pergerakan, TIDAK menyiratkan baik/buruk
+// (naik belum tentu bagus, mis. untuk Utilisasi Kapasitas Gudang). Harus
+// dipanggil SEBELUM recordHistory() supaya kpiHistory[key] masih berisi nilai
+// sebelumnya, belum ketiban nilai yang baru saja di-fetch.
+function applyTrendIndicators(){
+  Object.keys(KPI_CONFIGS).forEach(key=>{
+    const cfg = KPI_CONFIGS[key];
+    const d = latestRaw[cfg.zoneKey];
+    const valueEl = document.getElementById(domIdForKey(key));
+    if(!valueEl) return;
+
+    let badge = document.getElementById('trend-'+key);
+    if(!badge){
+      badge = document.createElement('span');
+      badge.id = 'trend-'+key;
+      badge.className = 'trend-badge';
+      valueEl.insertAdjacentElement('afterend', badge);
+    }
+
+    if(!d){ badge.textContent = ''; badge.title=''; return; }
+    let value;
+    try{ value = cfg.value(d); }catch(e){ badge.textContent=''; return; }
+    if(typeof value !== 'number' || Number.isNaN(value)){ badge.textContent=''; return; }
+
+    const hist = kpiHistory[key];
+    if(!hist || hist.length === 0){ badge.textContent=''; badge.title=''; return; }
+    const prev = hist[hist.length-1];
+    const diff = value - prev;
+    const noiseFloor = Math.max(Math.abs(prev) * 0.0008, 0.0005);
+    if(!isFinite(diff) || Math.abs(diff) <= noiseFloor){
+      badge.textContent=''; badge.title='';
+      return;
+    }
+    badge.textContent = diff > 0 ? '▲' : '▼';
+    badge.title = (diff > 0 ? 'Naik' : 'Turun') + ' dari update sebelumnya (sebelumnya: ' + fmtPct(prev) + ')';
+  });
+}
 
 function recordHistory(){
   Object.keys(KPI_CONFIGS).forEach(key=>{
