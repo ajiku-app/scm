@@ -1,0 +1,12 @@
+{
+  "name": "scm-control-tower",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Serena Control Tower — lapisan agregasi KPI strategis di atas Stock Monitoring FG, Logistics Monitoring, dan FEFO Monitoring. Client statis + serverless API proxy (Vercel).",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "vercel": "^37.0.0"
+  }
+}

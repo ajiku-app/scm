@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serena Control Tower — KPI Strategis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div>
+      <div class="brand-mark"><span class="dot"></span>SUPER APP — LAPISAN KPI TERSATU</div>
+      <h1 class="brand-title">SCM CONTROL TOWER</h1>
+      <div class="brand-sub">Ringkasan KPI Strategis dari Warehouse SCM — Cibinong. Data diperbarui otomatis; beralih ke simulasi jika sumber live tidak tersedia.</div>
+    </div>
+    <div class="sync-box">
+      <div class="row"><span class="sync-pill" id="syncPill">● MENYIAPKAN…</span></div>
+      <div id="lastUpdateText">Update terakhir: —</div>
+      <div class="btn-row">
+        <button class="btn-ghost" id="refreshBtn" onclick="manualRefresh()">
+          <svg id="refreshIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          Segarkan
+        </button>
+        <button class="btn-ghost" onclick="toggleSettings()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg>
+          Konfigurasi
+        </button>
+      </div>
+      <div id="periodText" style="font-size:12px;">Periode data: 05 Jan 2026 – 09 Sep 2026</div>
+    </div>
+  </div>
+
+  <div class="settings-panel" id="settingsPanel">
+    <h2>Konfigurasi Sumber Data</h2>
+    <p class="sub">Endpoint live dikonfigurasi oleh server lewat environment variable (lihat <code>.env.example</code>), bukan di browser — ini menghindari kunci API bocor ke client. Di sini Anda hanya mengatur zona mana yang boleh mencoba mengambil data live lewat <code>/api/kpi</code>. Jika dimatikan, gagal, atau server tidak terjangkau, Control Tower otomatis jatuh ke <b style="color:var(--text)">mode simulasi</b> berbasis data historis terakhir agar tampilan tetap berjalan.</p>
+    <div class="settings-grid">
+      <div class="settings-card">
+        <div class="sc-head"><span>Stock Monitoring FG</span>
+          <label class="toggle"><input type="checkbox" id="stock-enabled"> Coba Live</label>
+        </div>
+        <span class="mode-tag sim" id="stock-modetag">SIMULASI</span>
+        <div class="mode-error" id="stock-modeerror"></div>
+      </div>
+      <div class="settings-card">
+        <div class="sc-head"><span>Logistics Monitoring</span>
+          <label class="toggle"><input type="checkbox" id="logistics-enabled"> Coba Live</label>
+        </div>
+        <span class="mode-tag sim" id="logistics-modetag">SIMULASI</span>
+        <div class="mode-error" id="logistics-modeerror"></div>
+      </div>
+      <div class="settings-card">
+        <div class="sc-head"><span>FEFO Monitoring</span>
+          <label class="toggle"><input type="checkbox" id="fefo-enabled"> Coba Live</label>
+        </div>
+        <span class="mode-tag sim" id="fefo-modetag">SIMULASI</span>
+        <div class="mode-error" id="fefo-modeerror"></div>
+      </div>
+      <div class="settings-card">
+        <div class="sc-head"><span>Produktivitas Tim Gudang</span></div>
+        <p style="font-size:11px;color:var(--muted);margin:0;line-height:1.5;">Metrik turunan dari log Logistics (bukan endpoint terpisah) — selalu dihitung dari data simulasi/terakhir yang tersedia.</p>
+        <span class="mode-tag sim" id="warehouse-modetag">SIMULASI</span>
+        <div class="mode-error" id="warehouse-modeerror"></div>
+      </div>
+    </div>
+    <div class="settings-foot">
+      <div class="interval">
+        Interval pembaruan otomatis:
+        <select id="intervalSelect">
+          <option value="10000">10 detik</option>
+          <option value="20000" selected>20 detik</option>
+          <option value="60000">1 menit</option>
+          <option value="300000">5 menit</option>
+          <option value="0">Manual saja</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="saveAndApply()">Simpan &amp; Segarkan</button>
+    </div>
+    <details class="contract-details">
+      <summary>Lihat kontrak data JSON yang diharapkan per zona</summary>
+      <pre id="contractPre"></pre>
+    </details>
+  </div>
+
+  <div class="health">
+    <div class="health-score" onclick="openCombinedScoreModal()" style="cursor:pointer;">
+      <div class="num" id="healthScoreNum">--<span>/100</span></div>
+      <div class="label">Skor Kesehatan Operasional Gabungan — rata-rata tertimbang dari 3 indikator utama di bawah. Klik untuk rincian.</div>
+    </div>
+    <div class="health-bars">
+      <div class="hbar-row" onclick="openKpiModal('stock-health')" style="cursor:pointer;">
+        <span class="name">Kesehatan Stok FG</span>
+        <div class="hbar-track"><div class="hbar-fill" id="bar-stock" style="width:0%;background:var(--warn);"></div></div>
+        <span class="val" id="val-stock">--%</span>
+      </div>
+      <div class="hbar-row" onclick="openKpiModal('log-sla')" style="cursor:pointer;">
+        <span class="name">SLA Loading Logistik</span>
+        <div class="hbar-track"><div class="hbar-fill" id="bar-sla" style="width:0%;background:var(--bad);"></div></div>
+        <span class="val" id="val-sla">--%</span>
+      </div>
+      <div class="hbar-row" onclick="openKpiModal('fefo-compliance')" style="cursor:pointer;">
+        <span class="name">Kepatuhan FEFO</span>
+        <div class="hbar-track"><div class="hbar-fill" id="bar-fefo" style="width:0%;background:var(--good);"></div></div>
+        <span class="val" id="val-fefo">--%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="zones">
+
+    <div class="zone status-warn" id="zone-stock">
+      <div class="zone-head">
+        <div>
+          <h2>Stock Monitoring FG</h2>
+          <span class="app-tag"><span class="live-dot sim" id="dot-stock"></span>GUDANG BARANG JADI · 102 SKU</span>
+        </div>
+        <span class="zone-badge warn" id="badge-stock">Perlu Perhatian</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi" onclick="openKpiModal('stock-health')">
+          <div class="v warn" id="kpi-stock-health">46.1%</div>
+          <div class="l">Kesehatan Stok Keseluruhan</div>
+          <div class="s" id="kpi-stock-healthsub">47 dari 102 SKU Aman</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('stock-forecast')">
+          <div class="v bad" id="kpi-stock-forecast">11.5%</div>
+          <div class="l">Forecast Accuracy</div>
+          <div class="s" id="kpi-stock-forecastsub">73/102 SKU terakurasi</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('stock-cap')">
+          <div class="v bad" id="kpi-stock-cap">96.8%</div>
+          <div class="l">Utilisasi Kapasitas Gudang</div>
+          <div class="s" id="kpi-stock-capsub">6.729 / 6.948 pallet</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('stock-total')">
+          <div class="v neutral" id="kpi-stock-total">443.856</div>
+          <div class="l">Total Stok Hari Ini (unit)</div>
+          <div class="s" id="kpi-stock-totalsub">▼2,6% vs hari sebelumnya</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('stock-value')">
+          <div class="v neutral" id="kpi-stock-value">Rp0</div>
+          <div class="l">Nilai Stok (IDR)</div>
+          <div class="s" id="kpi-stock-valuesub">berdasarkan harga master produk</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('stock-volume')">
+          <div class="v neutral" id="kpi-stock-volume">0 L</div>
+          <div class="l">Volume Stok</div>
+          <div class="s" id="kpi-stock-volumesub">berdasarkan volume master produk</div>
+        </div>
+      </div>
+      <p class="zone-insight" id="insight-stock"><b>Insight:</b> Kapasitas gudang mendekati penuh dan akurasi forecast sangat rendah — dua sinyal ini bersama berisiko memperbesar kelebihan/kekurangan stok kelas A.</p>
+      <a class="zone-link" href="https://stok-monitoring.vercel.app/" target="_blank" rel="noopener">Buka Stock Monitoring FG →</a>
+    </div>
+
+    <div class="zone status-bad" id="zone-logistics">
+      <div class="zone-head">
+        <div>
+          <h2>Logistics Monitoring</h2>
+          <span class="app-tag"><span class="live-dot sim" id="dot-logistics"></span>DISPATCH LOG · PANTAU BERJALAN</span>
+        </div>
+        <span class="zone-badge bad" id="badge-logistics">Di Bawah Target</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi" onclick="openKpiModal('log-sla')">
+          <div class="v bad" id="kpi-log-sla">48%</div>
+          <div class="l">SLA Loading</div>
+          <div class="s">Target ≤ 90 menit</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('log-avg')">
+          <div class="v neutral" id="kpi-log-avg">1j 42m</div>
+          <div class="l">Rata-rata Durasi Loading</div>
+          <div class="s" id="kpi-log-avgsub">98 pengiriman terpantau</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('log-total')">
+          <div class="v neutral" id="kpi-log-total">98 unit</div>
+          <div class="l">Total Pengiriman</div>
+          <div class="s" id="kpi-log-totalsub">18 ekspedisi aktif</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('log-longest')">
+          <div class="v bad" id="kpi-log-longest">5j 35m</div>
+          <div class="l">Loading Terlama</div>
+          <div class="s">Supriatna → Korea</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('log-wait')">
+          <div class="v neutral" id="kpi-log-wait">27m</div>
+          <div class="l">Rata-rata Waktu Tunggu Driver</div>
+          <div class="s" id="kpi-log-waitsub">sebelum proses loading dimulai</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('log-volveh')">
+          <div class="v neutral" id="kpi-log-volveh">3,85 m³</div>
+          <div class="l">Rata-rata Volume Muat / Kendaraan</div>
+          <div class="s" id="kpi-log-volvehsub">volume produk ÷ jumlah armada</div>
+        </div>
+      </div>
+      <p class="zone-insight" id="insight-logistics"><b>Insight:</b> 51 dari 98 pengiriman (52%) lewat SLA. Rute Medan &amp; ekspedisi Sarana Trans Sumatera mendominasi — kandidat kuat untuk kontrak armada tetap.</p>
+      <a class="zone-link" href="https://logistics-monitoring-zeta.vercel.app/" target="_blank" rel="noopener">Buka Logistics Monitoring →</a>
+    </div>
+
+    <div class="zone status-good" id="zone-fefo">
+      <div class="zone-head">
+        <div>
+          <h2>FEFO Monitoring</h2>
+          <span class="app-tag"><span class="live-dot sim" id="dot-fefo"></span>INVENTORY INTELLIGENCE · 222 ITEM</span>
+        </div>
+        <span class="zone-badge good" id="badge-fefo">Sehat</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi" onclick="openKpiModal('fefo-compliance')">
+          <div class="v good" id="kpi-fefo-compliance">93.07%</div>
+          <div class="l">Kepatuhan FEFO</div>
+          <div class="s">Seluruh gudang</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('fefo-dead')">
+          <div class="v good" id="kpi-fefo-dead">0%</div>
+          <div class="l">Dead Stock / Near-Expired</div>
+          <div class="s">Risiko kedaluwarsa</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('fefo-trace')">
+          <div class="v good" id="kpi-fefo-trace">100%</div>
+          <div class="l">Batch Traceability</div>
+          <div class="s">Qty tercatat kode batch</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('fefo-qty')">
+          <div class="v neutral" id="kpi-fefo-qty">3,55 jt ctn</div>
+          <div class="l">Total Kuantitas Terkirim</div>
+          <div class="s">Freshness SLED 99,9%</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('fefo-value')">
+          <div class="v neutral" id="kpi-fefo-value">Rp0</div>
+          <div class="l">Nilai Barang Terkirim</div>
+          <div class="s" id="kpi-fefo-valuesub">berdasarkan harga master produk</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('fefo-volume')">
+          <div class="v neutral" id="kpi-fefo-volume">0 L</div>
+          <div class="l">Volume Barang Terkirim</div>
+          <div class="s" id="kpi-fefo-volumesub">berdasarkan volume master produk</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('fefo-today-volume')">
+          <div class="v neutral" id="kpi-fefo-todayvolume">0 m³</div>
+          <div class="l">Volume Pengiriman Hari Ini</div>
+          <div class="s" id="kpi-fefo-todayvolumesub">vs rata-rata harian</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('fefo-growth')">
+          <div class="v neutral" id="kpi-fefo-growth">▲0%</div>
+          <div class="l">Pertumbuhan Penjualan</div>
+          <div class="s" id="kpi-fefo-growthsub">nilai terkirim vs periode sebelumnya</div>
+        </div>
+      </div>
+      <p class="zone-insight" id="insight-fefo"><b>Insight:</b> Rotasi stok sudah sehat dan tertelusuri penuh, namun tetap ada 4.887 kejadian pelanggaran urutan FEFO pasti yang perlu dipantau agar tren tidak naik.</p>
+      <a class="zone-link" href="https://fefodashboard.vercel.app/" target="_blank" rel="noopener">Buka FEFO Monitoring →</a>
+    </div>
+
+    <div class="zone status-warn" id="zone-warehouse">
+      <div class="zone-head">
+        <div>
+          <h2>Produktivitas Tim Gudang</h2>
+          <span class="app-tag"><span class="live-dot sim" id="dot-warehouse"></span>DISPATCH LOG · TIM PICKER / MUAT / STUFFING</span>
+        </div>
+        <span class="zone-badge warn" id="badge-warehouse">Perlu Perhatian</span>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi" onclick="openKpiModal('wh-shipday')">
+          <div class="v neutral" id="kpi-wh-shipday">10,5</div>
+          <div class="l">Rata-rata Pengiriman / Hari Kerja</div>
+          <div class="s" id="kpi-wh-shipdaysub">692 pengiriman / 66 hari kerja</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('wh-crew')">
+          <div class="v neutral" id="kpi-wh-crew">9,0</div>
+          <div class="l">Rata-rata Tenaga / Pengiriman</div>
+          <div class="s" id="kpi-wh-crewsub">picker + muat + stuffing</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('wh-picker')">
+          <div class="v neutral" id="kpi-wh-picker">3,2</div>
+          <div class="l">Rata-rata Tim Picker / Pengiriman</div>
+          <div class="s" id="kpi-wh-pickersub">orang per pengiriman</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('wh-muat')">
+          <div class="v neutral" id="kpi-wh-muat">2,8</div>
+          <div class="l">Rata-rata Tim Muat / Pengiriman</div>
+          <div class="s" id="kpi-wh-muatsub">orang per pengiriman</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('wh-stuffing')">
+          <div class="v neutral" id="kpi-wh-stuffing">3,0</div>
+          <div class="l">Rata-rata Tim Stuffing / Pengiriman</div>
+          <div class="s" id="kpi-wh-stuffingsub">orang per pengiriman</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('wh-match')">
+          <div class="v warn" id="kpi-wh-match">74,5%</div>
+          <div class="l">Cakupan Pengenalan Nama Petugas</div>
+          <div class="s" id="kpi-wh-matchsub">dari 31 karyawan terdaftar</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('wh-top')">
+          <div class="v neutral" id="kpi-wh-top">142</div>
+          <div class="l">Petugas Paling Aktif (kemunculan)</div>
+          <div class="s" id="kpi-wh-topsub">ILHAM</div>
+        </div>
+        <div class="kpi" onclick="openKpiModal('wh-vehicle')">
+          <div class="v neutral" id="kpi-wh-vehicle">11 unit</div>
+          <div class="l">Kebutuhan Rata-rata Kendaraan Muat / Hari</div>
+          <div class="s" id="kpi-wh-vehiclesub">≈10,5 pengiriman/hari, dibulatkan ke atas</div>
+        </div>
+      </div>
+      <p class="zone-insight" id="insight-warehouse"><b>Insight:</b> Nama petugas di log Logistics masih tergabung tanpa spasi (mis. "CAHYOADAMFERIKHAALFIAN") — pencocokan otomatis baru mengenali sebagian nama, rapikan format input di aplikasi Logistics Monitoring agar produktivitas per orang bisa dihitung akurat.</p>
+      <a class="zone-link" href="https://logistics-monitoring-zeta.vercel.app/" target="_blank" rel="noopener">Sumber data: Logistics Monitoring →</a>
+    </div>
+
+  </div>
+
+  <div class="alerts">
+    <h2>Peringatan Lintas Aplikasi — Prioritas Eksekutif</h2>
+    <p class="sub">Disaring otomatis dari ketiga aplikasi berdasarkan urgensi terhadap operasional gudang, dihitung ulang setiap kali data diperbarui.</p>
+    <ul class="alert-list" id="alertList">
+      <li class="alert-item"><span class="alert-src">Sistem</span><p>Memuat data pertama…</p></li>
+    </ul>
+  </div>
+
+  <footer>Serena Control Tower · lapisan agregasi KPI di atas Stock Monitoring FG, Logistics Monitoring &amp; FEFO Monitoring Inventory Intelligence. <a onclick="toggleSettings()">Atur sumber data →</a></footer>
+
+</div>
+
+<div class="modal-overlay" id="kpiModalOverlay" onclick="if(event.target===this) closeKpiModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <span class="zone-tag" id="modalZoneTag">ZONA</span>
+        <h3 id="modalTitle">Judul KPI</h3>
+      </div>
+      <button class="modal-close" onclick="closeKpiModal()">✕</button>
+    </div>
+    <div class="modal-value-row">
+      <span class="modal-value" id="modalValue">--</span>
+      <span class="modal-status" id="modalStatus">--</span>
+    </div>
+    <div class="modal-spark">
+      <svg id="modalSparkSvg" viewBox="0 0 260 52" preserveAspectRatio="none"></svg>
+      <div class="caption" id="modalSparkCaption">Tren sejak sesi ini dibuka</div>
+    </div>
+    <div class="modal-rows" id="modalRows"></div>
+    <div class="modal-analysis">
+      <span class="tag">HASIL ANALISIS</span>
+      <div id="modalAnalysis">—</div>
+    </div>
+    <div class="modal-mode" id="modalMode"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
