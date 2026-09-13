@@ -26,6 +26,11 @@ const ZONES = {
     defaultUrl:
       'https://qbougldvlmceeqceduae.supabase.co/functions/v1/fefo-monitoring-api/kpi',
   },
+  warehouse: {
+    envUrl: 'WAREHOUSE_API_URL',
+    defaultUrl:
+      'https://qbougldvlmceeqceduae.supabase.co/functions/v1/warehouse-productivity-api/kpi',
+  },
 };
 
 const ZONE_KEYS = Object.keys(ZONES);

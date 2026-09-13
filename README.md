@@ -1,8 +1,10 @@
 # Serena Control Tower — SCM KPI Dashboard
 
-Lapisan agregasi KPI strategis di atas tiga aplikasi sumber: **Stock Monitoring FG**,
-**Logistics Monitoring**, dan **FEFO Monitoring**. Menampilkan skor kesehatan
-operasional gabungan, KPI per zona, insight otomatis, dan peringatan lintas aplikasi.
+Lapisan agregasi KPI strategis di atas empat sumber: **Stock Monitoring FG**,
+**Logistics Monitoring**, **FEFO Monitoring**, dan **Produktivitas Tim Gudang**
+(dihitung server-side dari tabel `logistics` + `data_karyawan` lewat Edge Function
+`warehouse-productivity-api`). Menampilkan skor kesehatan operasional gabungan,
+KPI per zona, insight otomatis, dan peringatan lintas aplikasi.
 
 ## Arsitektur
 
@@ -30,18 +32,28 @@ scm-control-tower/
 ```
 
 **Alur data (refresh normal dashboard):** browser memanggil `/api/kpi`
-(same-origin, tanpa masalah CORS) → `api/kpi.js` memanggil ketiga endpoint
+(same-origin, tanpa masalah CORS) → `api/kpi.js` memanggil keempat endpoint
 Supabase Edge Function secara paralel & server-to-server (dengan
 `apikey`/`Authorization` dari environment variable) → hasilnya digabung dalam
 satu snapshot lalu dikirim balik ke browser sebagai satu response JSON. Dipilih
 sebagai default karena dashboard ini selalu merender & menghitung skor
-gabungan dari ketiga zona sekaligus tiap siklus refresh, jadi 1 request lebih
+gabungan dari zona-zona ini sekaligus tiap siklus refresh, jadi 1 request lebih
 hemat dan snapshot-nya konsisten antar-zona.
+
+**Tentang zona "Produktivitas Tim Gudang":** berbeda dari 3 zona lain, ini bukan
+aplikasi terpisah — Edge Function `warehouse-productivity-api` menghitungnya
+langsung dari baris mentah tabel `logistics` (kolom `picker`/`muat`/`stuffing`)
+yang dicocokkan ke tabel `data_karyawan`. Karena nama petugas di kolom tersebut
+kadang tergabung tanpa spasi (mis. "CAHYOADAMFERIKHAALFIAN" = 4 nama sekaligus),
+function ini melakukan pencocokan heuristik (longest-match) — nilai
+`token_match_pct` yang ditampilkan dashboard mencerminkan kualitas pencocokan
+ini, bukan performa kerja. Kalau field ini pernah perlu diubah lagi, source
+lengkapnya ada di Supabase Dashboard → Edge Functions → `warehouse-productivity-api`.
 
 **Endpoint granular (`/api/kpi/<zone>`)** disediakan sebagai pelengkap untuk
 kebutuhan di masa depan — mis. tombol "refresh zona ini saja", interval
 berbeda per kartu, atau retry hanya zona yang gagal. Contoh: `GET
-/api/kpi/stock`, `GET /api/kpi/logistics`, `GET /api/kpi/fefo`. Zona yang
+/api/kpi/stock`, `GET /api/kpi/logistics`, `GET /api/kpi/fefo`, `GET /api/kpi/warehouse`. Zona yang
 tidak dikenal akan mengembalikan HTTP 404 dengan pesan error yang jelas. Kedua
 endpoint memakai fungsi fetch/timeout/header yang sama persis dari
 `api/_lib/kpi-zones.js`, jadi perilakunya selalu konsisten.
@@ -86,6 +98,7 @@ git push -u origin main
    - `STOCK_API_URL`
    - `LOGISTICS_API_URL`
    - `FEFO_API_URL`
+   - `WAREHOUSE_API_URL`
    - `SUPABASE_ANON_KEY`
 4. Klik **Deploy**.
 
@@ -111,7 +124,7 @@ Pengaturan ini disimpan di `localStorage` browser masing-masing pengguna.
 
 ## Kontrak data JSON
 
-Tiap endpoint (`STOCK_API_URL`, `LOGISTICS_API_URL`, `FEFO_API_URL`) diharapkan
+Tiap endpoint (`STOCK_API_URL`, `LOGISTICS_API_URL`, `FEFO_API_URL`, `WAREHOUSE_API_URL`) diharapkan
 mengembalikan JSON datar (bukan array, bukan nested) sesuai bentuk yang bisa
 dilihat di dashboard lewat panel Konfigurasi → "Lihat kontrak data JSON yang
 diharapkan per zona", atau di konstanta `DATA_CONTRACT` pada `app.js`.

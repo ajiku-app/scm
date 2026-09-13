@@ -14,8 +14,8 @@ let config = {
   zones: {
     stock:      { enabled:true },
     logistics:  { enabled:true },
-    fefo:       { enabled:true }
-    // 'warehouse' sengaja tidak ada di sini: metrik turunan, selalu simulasi lokal.
+    fefo:       { enabled:true },
+    warehouse:  { enabled:true }
   }
 };
 
@@ -357,9 +357,11 @@ function stepSim(zoneKey){
 }
 
 // Satu-satunya sumber data live: endpoint SERVER SENDIRI (/api/kpi), yang di
-// belakang layar memanggil ketiga endpoint Supabase Edge Function secara
+// belakang layar memanggil keempat endpoint Supabase Edge Function secara
 // server-to-server (menghindari CORS di browser dan menyembunyikan API key).
-// Zona "warehouse" tidak punya endpoint sendiri (metrik turunan) → selalu simulasi.
+// Zona "warehouse" dihitung dari Edge Function "warehouse-productivity-api",
+// yang mengagregasi tabel logistics (picker/muat/stuffing) + data_karyawan —
+// bukan endpoint terpisah yang di-input manual, tapi tetap sumber live asli.
 const API_ENDPOINT = '/api/kpi';
 let lastApiResult = null;
 let lastApiFetchFailed = false;
@@ -379,11 +381,6 @@ async function fetchFromServer(){
 }
 
 function fetchZone(zoneKey){
-  if(zoneKey === 'warehouse'){
-    lastError.warehouse = 'Metrik turunan (dihitung dari log Logistics) — tidak punya endpoint live sendiri, selalu simulasi.';
-    return { status:'simulated', data: stepSim('warehouse') };
-  }
-
   const z = config.zones[zoneKey];
   if(!z.enabled){
     lastError[zoneKey] = 'Zona ini dinonaktifkan (toggle "Coba Live" di Konfigurasi masih mati).';
@@ -840,6 +837,7 @@ function applyConfigToForm(){
   document.getElementById('stock-enabled').checked = config.zones.stock.enabled;
   document.getElementById('logistics-enabled').checked = config.zones.logistics.enabled;
   document.getElementById('fefo-enabled').checked = config.zones.fefo.enabled;
+  document.getElementById('warehouse-enabled').checked = config.zones.warehouse.enabled;
   document.getElementById('intervalSelect').value = String(config.refreshInterval);
 }
 
@@ -847,6 +845,7 @@ function readConfigFromForm(){
   config.zones.stock.enabled = document.getElementById('stock-enabled').checked;
   config.zones.logistics.enabled = document.getElementById('logistics-enabled').checked;
   config.zones.fefo.enabled = document.getElementById('fefo-enabled').checked;
+  config.zones.warehouse.enabled = document.getElementById('warehouse-enabled').checked;
   config.refreshInterval = parseInt(document.getElementById('intervalSelect').value, 10);
 }
 
@@ -877,7 +876,7 @@ document.getElementById('contractPre').textContent = JSON.stringify(DATA_CONTRAC
   scheduleTimer();
   await refreshAll();
   const liveCount = Object.values(latestStatus).filter(s=>s==='live').length;
-  if(liveCount < 3){
+  if(liveCount < 4){
     document.getElementById('settingsPanel').classList.add('open');
   }
 })();

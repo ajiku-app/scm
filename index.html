@@ -60,8 +60,10 @@
         <div class="mode-error" id="fefo-modeerror"></div>
       </div>
       <div class="settings-card">
-        <div class="sc-head"><span>Produktivitas Tim Gudang</span></div>
-        <p style="font-size:11px;color:var(--muted);margin:0;line-height:1.5;">Metrik turunan dari log Logistics (bukan endpoint terpisah) — selalu dihitung dari data simulasi/terakhir yang tersedia.</p>
+        <div class="sc-head"><span>Produktivitas Tim Gudang</span>
+          <label class="toggle"><input type="checkbox" id="warehouse-enabled"> Coba Live</label>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin:0;line-height:1.5;">Dihitung server dari tabel Logistics (picker/muat/stuffing) + daftar karyawan — lihat catatan kualitas data di analisis kartu "Cakupan Pengenalan Nama Petugas".</p>
         <span class="mode-tag sim" id="warehouse-modetag">SIMULASI</span>
         <div class="mode-error" id="warehouse-modeerror"></div>
       </div>
