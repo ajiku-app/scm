@@ -26,6 +26,7 @@ let latestRaw = { stock:null, logistics:null, fefo:null, warehouse:null };
 let latestStatus = { stock:'simulated', logistics:'simulated', fefo:'simulated', warehouse:'simulated' };
 let lastError = { stock:null, logistics:null, fefo:null, warehouse:null };
 let kpiHistory = {};
+let kpiHistoryTs = {}; // timestamp (ms) paralel per entri kpiHistory[key], dipakai badge tren
 const HISTORY_CAP = 40;
 
 const KPI_CONFIGS = {
@@ -697,13 +698,27 @@ function domIdForKey(key){
   return KPI_DOM_ID_OVERRIDES[key] || ('kpi-' + key);
 }
 
-// Indikator ▲/▼ per kartu KPI: membandingkan nilai HASIL REFRESH SEKARANG
-// dengan nilai pada refresh SEBELUMNYA (dari kpiHistory yang sudah dipakai
-// untuk sparkline) — jadi murni arah pergerakan, TIDAK menyiratkan baik/buruk
-// (naik belum tentu bagus, mis. untuk Utilisasi Kapasitas Gudang). Harus
-// dipanggil SEBELUM recordHistory() supaya kpiHistory[key] masih berisi nilai
-// sebelumnya, belum ketiban nilai yang baru saja di-fetch.
+// Indikator ▲/▼ per kartu KPI: dibandingkan dengan NILAI BERBEDA TERAKHIR
+// yang tercatat di riwayat (bisa dari beberapa refresh lalu, bukan cuma
+// refresh langsung sebelumnya) — sengaja begini karena data LIVE seringkali
+// persis sama antar-refresh singkat (snapshot database, bukan stream
+// realtime), jadi membandingkan ke 1 langkah ke belakang saja jarang
+// menangkap perubahan sungguhan. Kalau di SELURUH riwayat yang tersimpan
+// (maks HISTORY_CAP entri) nilainya identik, simbol sengaja dikosongkan —
+// itu tetap jujur menunjukkan "belum ada perubahan tercatat". TIDAK
+// menyiratkan baik/buruk (naik belum tentu bagus, mis. Utilisasi Kapasitas).
+// Harus dipanggil SEBELUM recordHistory() supaya riwayat belum ketiban nilai
+// yang baru saja di-fetch.
+function fmtElapsed(ms){
+  const sec = Math.round(ms/1000);
+  if(sec < 60) return sec+' detik lalu';
+  const min = Math.round(sec/60);
+  if(min < 60) return min+' menit lalu';
+  const jam = Math.round(min/60);
+  return jam+' jam lalu';
+}
 function applyTrendIndicators(){
+  const now = Date.now();
   Object.keys(KPI_CONFIGS).forEach(key=>{
     const cfg = KPI_CONFIGS[key];
     const d = latestRaw[cfg.zoneKey];
@@ -724,28 +739,42 @@ function applyTrendIndicators(){
     if(typeof value !== 'number' || Number.isNaN(value)){ badge.textContent=''; return; }
 
     const hist = kpiHistory[key];
+    const hts = kpiHistoryTs[key];
     if(!hist || hist.length === 0){ badge.textContent=''; badge.title=''; return; }
-    const prev = hist[hist.length-1];
-    const diff = value - prev;
-    const noiseFloor = Math.max(Math.abs(prev) * 0.0008, 0.0005);
-    if(!isFinite(diff) || Math.abs(diff) <= noiseFloor){
+
+    const noiseFloor = Math.max(Math.abs(value) * 0.0008, 0.0005);
+    // Cari mundur dari entri paling baru: titik terakhir yang nilainya
+    // BERBEDA dari nilai sekarang.
+    let refIdx = -1;
+    for(let i=hist.length-1; i>=0; i--){
+      if(Math.abs(hist[i]-value) > noiseFloor){ refIdx = i; break; }
+    }
+    if(refIdx === -1){
+      // Seluruh riwayat yang tersimpan identik dengan nilai sekarang — belum
+      // ada perubahan yang tertangkap sejauh ini.
       badge.textContent=''; badge.title='';
       return;
     }
+    const diff = value - hist[refIdx];
+    const elapsedTxt = hts && hts[refIdx] ? fmtElapsed(now - hts[refIdx]) : 'beberapa refresh lalu';
     badge.textContent = diff > 0 ? '▲' : '▼';
-    badge.title = (diff > 0 ? 'Naik' : 'Turun') + ' dari update sebelumnya (sebelumnya: ' + fmtPct(prev) + ')';
+    badge.title = (diff > 0 ? 'Naik' : 'Turun') + ' dibanding ' + elapsedTxt + ' (waktu itu: ' + fmtPct(hist[refIdx]) + ')';
   });
 }
 
 function recordHistory(){
+  const now = Date.now();
   Object.keys(KPI_CONFIGS).forEach(key=>{
     const cfg = KPI_CONFIGS[key];
     const d = latestRaw[cfg.zoneKey];
     if(!d) return;
     const v = cfg.value(d);
     if(!kpiHistory[key]) kpiHistory[key] = [];
+    if(!kpiHistoryTs[key]) kpiHistoryTs[key] = [];
     kpiHistory[key].push(v);
+    kpiHistoryTs[key].push(now);
     if(kpiHistory[key].length > HISTORY_CAP) kpiHistory[key].shift();
+    if(kpiHistoryTs[key].length > HISTORY_CAP) kpiHistoryTs[key].shift();
   });
   if(latestRaw.stock && latestRaw.logistics && latestRaw.fefo){
     const score = (KPI_CONFIGS['stock-health'].value(latestRaw.stock)
