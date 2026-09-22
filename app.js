@@ -80,17 +80,6 @@ const KPI_CONFIGS = {
       return `Total stok hari ini ${fmtInt(d.total_stock_unit)} unit, ${arah} ${fmtPct(Math.abs(d.stock_change_pct))}% dibanding hari sebelumnya. Pergerakan ini wajar dipantau bersama akurasi forecast dan utilisasi kapasitas agar tren stok tidak menumpuk di satu arah secara berkelanjutan.`;
     }
   },
-  'stock-value': {
-    title:'Nilai Stok Tersimpan', zone:'Stock Monitoring FG', zoneKey:'stock',
-    value:d=>d.total_nilai_stok_idr, fmt:v=>fmtRupiah(v), status:()=>'good',
-    rows:d=>[['SKU dengan Data Harga', fmtInt(d.sku_dengan_harga)+' / '+fmtInt(d.total_sku)],['Total Nilai', fmtRupiah(d.total_nilai_stok_idr)]],
-    analysis:(d)=>{
-      const cakupan = d.total_sku ? (d.sku_dengan_harga/d.total_sku*100) : 0;
-      let t = `Total nilai stok (cash tied up in inventory) yang tersimpan saat ini sekitar ${fmtRupiah(d.total_nilai_stok_idr)}, dihitung dari ${fmtInt(d.sku_dengan_harga)} dari ${fmtInt(d.total_sku)} SKU (${fmtPct(cakupan,0)}%) yang punya data harga di master produk.`;
-      t += cakupan<80 ? ` Cakupan harga belum lengkap — angka ini kemungkinan under-estimate, lengkapi data harga di master produk agar nilai stok lebih akurat.` : ` Cakupan data harga sudah cukup mewakili untuk dijadikan acuan modal kerja yang tertahan di gudang.`;
-      return t;
-    }
-  },
   'stock-volume': {
     title:'Volume Stok Terpakai', zone:'Stock Monitoring FG', zoneKey:'stock',
     value:d=>d.total_volume_stok_l, fmt:v=>fmtM3(v), status:()=>'neutral',
@@ -264,17 +253,6 @@ const KPI_CONFIGS = {
     rows:d=>[['Total Karton', fmtInt(d.total_qty_ctn)],['Freshness SLED', '99,9%']],
     analysis:(d)=>`Total ${(d.total_qty_ctn/1000000).toFixed(2).replace('.',',')} juta karton telah dikirim pada periode berjalan dengan freshness SLED terjaga di 99,9%, menunjukkan rotasi stok yang konsisten mengikuti urutan FEFO.`
   },
-  'fefo-value': {
-    title:'Nilai Barang Terkirim', zone:'FEFO Monitoring', zoneKey:'fefo',
-    value:d=>d.total_nilai_terkirim_idr, fmt:v=>fmtRupiah(v), status:()=>'good',
-    rows:d=>[['SKU dengan Data Harga', fmtInt(d.sku_dengan_harga||0)+' / '+fmtInt(d.total_sku_terkirim||0)],['Total Nilai', fmtRupiah(d.total_nilai_terkirim_idr)]],
-    analysis:(d)=>{
-      const cakupan = d.total_sku_terkirim ? (d.sku_dengan_harga/d.total_sku_terkirim*100) : 0;
-      let t = `Total nilai barang yang terkirim pada periode berjalan sekitar ${fmtRupiah(d.total_nilai_terkirim_idr)}, dihitung dari ${fmtInt(d.sku_dengan_harga||0)} dari ${fmtInt(d.total_sku_terkirim||0)} SKU (${fmtPct(cakupan,0)}%) yang punya data harga di master produk.`;
-      t += cakupan<80 ? ` Cakupan harga belum lengkap — angka ini kemungkinan under-estimate, lengkapi data harga di master produk agar nilai terkirim lebih akurat.` : ` Cakupan data harga sudah cukup mewakili untuk dijadikan acuan nilai barang keluar per periode.`;
-      return t;
-    }
-  },
   'fefo-volume': {
     title:'Volume Barang Terkirim', zone:'FEFO Monitoring', zoneKey:'fefo',
     value:d=>d.total_volume_terkirim_l, fmt:v=>fmtM3(v), status:()=>'neutral',
@@ -304,11 +282,14 @@ const KPI_CONFIGS = {
     value:d=> d.nilai_terkirim_periode_lalu_idr>0 ? ((d.total_nilai_terkirim_idr-d.nilai_terkirim_periode_lalu_idr)/d.nilai_terkirim_periode_lalu_idr*100) : 0,
     fmt:v=>(v>=0?'▲':'▼')+fmtPct(Math.abs(v))+'%',
     status:v=>classify(v,0,-10,false),
-    rows:d=>[['Nilai Periode Ini', fmtRupiah(d.total_nilai_terkirim_idr)],['Nilai Periode Lalu', fmtRupiah(d.nilai_terkirim_periode_lalu_idr)]],
+    rows:d=>{
+      const growth = d.nilai_terkirim_periode_lalu_idr>0 ? ((d.total_nilai_terkirim_idr-d.nilai_terkirim_periode_lalu_idr)/d.nilai_terkirim_periode_lalu_idr*100) : 0;
+      return [['Arah Tren', growth>=0?'Naik':'Turun'],['Perubahan', (growth>=0?'▲':'▼')+fmtPct(Math.abs(growth))+'%']];
+    },
     analysis:(d,cls)=>{
       const growth = d.nilai_terkirim_periode_lalu_idr>0 ? ((d.total_nilai_terkirim_idr-d.nilai_terkirim_periode_lalu_idr)/d.nilai_terkirim_periode_lalu_idr*100) : 0;
       const arah = growth>=0 ? 'tumbuh' : 'turun';
-      let t = `Nilai barang terkirim (proxy penjualan) ${arah} ${fmtPct(Math.abs(growth))}% dibanding periode sebelumnya — dari ${fmtRupiah(d.nilai_terkirim_periode_lalu_idr)} menjadi ${fmtRupiah(d.total_nilai_terkirim_idr)}.`;
+      let t = `Nilai barang terkirim (proxy penjualan) ${arah} ${fmtPct(Math.abs(growth))}% dibanding periode sebelumnya.`;
       t += cls==='bad' ? ` Penurunan cukup signifikan — perlu ditelusuri apakah karena permintaan turun, stockout SKU kelas A (cek kartu Kesehatan Stok), atau keterlambatan pengiriman (cek zona Logistics Monitoring).` :
            cls==='warn' ? ` Sedikit menurun — pantau tren periode berikutnya sebelum dianggap sebagai masalah struktural.` :
            ` Tren pertumbuhan positif dan sehat pada periode berjalan.`;
@@ -443,10 +424,6 @@ function renderStock(d, status){
   const chg = d.stock_change_pct ?? 0;
   document.getElementById('kpi-stock-totalsub').textContent = `${chg>=0?'▲':'▼'}${fmtPct(Math.abs(chg))}% vs hari sebelumnya`;
 
-  const nilaiStok = d.total_nilai_stok_idr ?? 0;
-  document.getElementById('kpi-stock-value').textContent = fmtRupiah(nilaiStok);
-  document.getElementById('kpi-stock-valuesub').textContent = `${fmtInt(d.sku_dengan_harga||0)}/${fmtInt(d.total_sku)} SKU ada data harga`;
-
   const volumeStok = d.total_volume_stok_l ?? 0;
   document.getElementById('kpi-stock-volume').textContent = fmtM3(volumeStok);
   document.getElementById('kpi-stock-volumesub').textContent = `${fmtInt(d.sku_dengan_volume||0)}/${fmtInt(d.total_sku)} SKU ada data volume`;
@@ -525,8 +502,6 @@ function renderFefo(d, status){
   document.getElementById('kpi-fefo-qty').textContent = (d.total_qty_ctn/1000000).toFixed(2).replace('.',',')+' jt ctn';
 
   const nilaiTerkirim = d.total_nilai_terkirim_idr ?? 0;
-  document.getElementById('kpi-fefo-value').textContent = fmtRupiah(nilaiTerkirim);
-  document.getElementById('kpi-fefo-valuesub').textContent = `${fmtInt(d.sku_dengan_harga||0)}/${fmtInt(d.total_sku_terkirim||0)} SKU ada data harga`;
 
   const volumeTerkirim = d.total_volume_terkirim_l ?? 0;
   document.getElementById('kpi-fefo-volume').textContent = fmtM3(volumeTerkirim);

@@ -11,6 +11,8 @@
 </head>
 <body>
 <div class="wrap">
+  <div id="moodBanner"></div>
+
 
   <div class="masthead">
     <div>
@@ -150,11 +152,6 @@
           <div class="l">Total Stok Hari Ini (unit)</div>
           <div class="s" id="kpi-stock-totalsub">▼2,6% vs hari sebelumnya</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('stock-value')">
-          <div class="v neutral" id="kpi-stock-value">Rp0</div>
-          <div class="l">Nilai Stok (IDR)</div>
-          <div class="s" id="kpi-stock-valuesub">berdasarkan harga master produk</div>
-        </div>
         <div class="kpi" onclick="openKpiModal('stock-volume')">
           <div class="v neutral" id="kpi-stock-volume">0 L</div>
           <div class="l">Volume Stok</div>
@@ -237,11 +234,6 @@
           <div class="v neutral" id="kpi-fefo-qty">3,55 jt ctn</div>
           <div class="l">Total Kuantitas Terkirim</div>
           <div class="s">Freshness SLED 99,9%</div>
-        </div>
-        <div class="kpi" onclick="openKpiModal('fefo-value')">
-          <div class="v neutral" id="kpi-fefo-value">Rp0</div>
-          <div class="l">Nilai Barang Terkirim</div>
-          <div class="s" id="kpi-fefo-valuesub">berdasarkan harga master produk</div>
         </div>
         <div class="kpi" onclick="openKpiModal('fefo-volume')">
           <div class="v neutral" id="kpi-fefo-volume">0 L</div>
@@ -665,5 +657,41 @@
 <script src="assets/auth-guard.js"></script>
 <script src="app.js"></script>
 <script src="analisis.js"></script>
+<script>
+(function () {
+  // Menampilkan hasil deteksi ekspresi wajah dari halaman login (kalau ada),
+  // maksimal 30 detik lalu hilang sendiri. Data ini cuma sekali pakai (dihapus
+  // dari sessionStorage begitu ditampilkan) dan tidak pernah dikirim ke server.
+  var MAX_MS = 30000;
+  try {
+    var raw = sessionStorage.getItem('scm_mood_result');
+    if (!raw) return;
+    sessionStorage.removeItem('scm_mood_result');
+    var data = JSON.parse(raw);
+    var age = Date.now() - (data.ts || 0);
+    if (age > MAX_MS) return; // sudah kedaluwarsa (mis. dari sesi lama), jangan tampilkan
+
+    var box = document.getElementById('moodBanner');
+    if (!box) return;
+    var el = document.createElement('div');
+    el.className = 'mood-banner' + (data.indikasiStres ? ' stres' : '');
+    el.innerHTML =
+      '<span class="mood-emoji">' + data.emoji + '</span>' +
+      '<span class="mood-text">Ekspresi terdeteksi saat login: <b>' + data.label + '</b> (' + data.percent + '%)' +
+      '<span class="mood-note">' + (data.indikasiStres
+        ? 'Indikasi tingkat stres cukup tinggi — bukan diagnosis, hanya perkiraan dari ekspresi wajah.'
+        : 'Perkiraan dari ekspresi wajah saat ini, bukan pengukuran medis.') + '</span></span>' +
+      '<button type="button" class="mood-close" aria-label="Tutup">×</button>';
+    box.appendChild(el);
+
+    var remaining = MAX_MS - age;
+    var timer = setTimeout(function () { el.remove(); }, remaining);
+    el.querySelector('.mood-close').addEventListener('click', function () {
+      clearTimeout(timer);
+      el.remove();
+    });
+  } catch (e) { /* abaikan bila sessionStorage/JSON bermasalah */ }
+})();
+</script>
 </body>
 </html>
