@@ -369,7 +369,9 @@ let lastApiFetchFailed = false;
 
 async function fetchFromServer(){
   try{
-    const res = await fetch(API_ENDPOINT, { method:'GET', headers:{'Accept':'application/json'}, cache:'no-store' });
+    if (window.SCM_AUTH_READY) await window.SCM_AUTH_READY;
+    const doFetch = (window.SCM_AUTH && window.SCM_AUTH.authFetch) || fetch;
+    const res = await doFetch(API_ENDPOINT, { method:'GET', headers:{'Accept':'application/json'}, cache:'no-store' });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const json = await res.json();
     lastApiResult = json;

@@ -34,6 +34,13 @@
     </div>
   </div>
 
+  <nav class="tabs" aria-label="Menu utama">
+    <a class="tab" id="tab-tower" href="#tower">Control Tower</a>
+    <a class="tab" id="tab-analisis" href="#analisis">Analisis &amp; Prediksi</a>
+  </nav>
+
+  <div id="page-tower">
+
   <div class="settings-panel" id="settingsPanel">
     <h2>Konfigurasi Sumber Data</h2>
     <p class="sub">Endpoint live dikonfigurasi oleh server lewat environment variable (lihat <code>.env.example</code>), bukan di browser — ini menghindari kunci API bocor ke client. Di sini Anda hanya mengatur zona mana yang boleh mencoba mengambil data live lewat <code>/api/kpi</code>. Jika dimatikan, gagal, atau server tidak terjangkau, Control Tower otomatis jatuh ke <b style="color:var(--text)">mode simulasi</b> berbasis data historis terakhir agar tampilan tetap berjalan.</p>
@@ -319,7 +326,310 @@
     </ul>
   </div>
 
-  <footer>SCM Control Tower · lapisan agregasi KPI di atas Stock Monitoring FG, Logistics Monitoring &amp; FEFO Monitoring Inventory Intelligence. <a onclick="toggleSettings()"></a></footer>
+  </div><!-- /#page-tower -->
+
+  <div id="page-analisis" hidden>
+    <div class="an-head">
+      <div>
+        <h2>Analisis &amp; Prediksi</h2>
+        <p class="an-lead">Kebutuhan armada, status stok, dan tren penjualan. Dibaca langsung dari view hasil analisis di Supabase.</p>
+      </div>
+      <div class="an-head-side">
+        <span class="sync-pill sim" id="anPill">● MEMUAT…</span>
+        <span class="an-updated" id="anUpdated">Belum dimuat</span>
+        <button class="btn-ghost" id="anRefresh" type="button">
+          <svg id="anRefreshIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          Segarkan
+        </button>
+      </div>
+    </div>
+
+    <div class="an-error" id="anError" role="alert" hidden></div>
+    <div class="an-loading" id="anLoading">Memuat data analisis…</div>
+
+    <div id="anBody" hidden>
+
+      <div class="an-toolbar an-subnav">
+        <div class="an-seg" id="anSubSeg" role="group" aria-label="Bagian analisis">
+          <button type="button" data-sub="armada" aria-pressed="true">Armada</button>
+          <button type="button" data-sub="stok" aria-pressed="false">Stok</button>
+          <button type="button" data-sub="prioritas" aria-pressed="false">Prioritas <span class="an-badge" id="anBadge" hidden></span></button>
+          <button type="button" data-sub="tren" aria-pressed="false">Tren</button>
+          <button type="button" data-sub="kirim" aria-pressed="false">Pengiriman</button>
+          <button type="button" data-sub="durasi" aria-pressed="false">Durasi truk</button>
+          <button type="button" data-sub="biaya" aria-pressed="false">Biaya</button>
+          <button type="button" data-sub="master" aria-pressed="false">Data master</button>
+        </div>
+      </div>
+
+      <div data-panel="armada">
+      <section class="an-card" aria-labelledby="anArmadaTitle">
+        <h3 id="anArmadaTitle">Kebutuhan armada: hari ini dan besok</h3>
+        <p class="an-sub">Jumlah unit untuk memuat seluruh rencana kirim di file stok terbaru. Tiap kolom armada berdiri sendiri: itu kebutuhan jika semua muatan memakai jenis armada tersebut saja, jadi jangan dijumlahkan antar kolom. Perhitungan sudah memakai kapasitas volume, batas berat, dan faktor isi dari tabel ref_armada.</p>
+        <div class="an-toolbar"><div class="an-seg" id="anGudangSeg" role="group" aria-label="Pilih gudang"></div><span class="an-updated" id="anAcuan"></span></div>
+        <div class="an-table-wrap" id="anArmadaTable"></div>
+        <ul class="an-notes" id="anArmadaNotes"></ul>
+        <div class="an-stats" id="anKendaraan"></div>
+      </section>
+
+
+        <section class="an-card" aria-labelledby="anPuncakTitle">
+          <h3 id="anPuncakTitle">Hari puncak vs kapasitas armada</h3>
+          <p class="an-sub">Berapa unit yang dibutuhkan pada hari rata-rata, hari padat (10% hari terpadat), dan hari puncak, berdasarkan volume kirim harian. Memakai kapasitas volume dan faktor isi dari ref_armada; baris tanpa data volume tidak terhitung, jadi angkanya batas bawah.</p>
+          <div class="an-toolbar"><div class="an-seg" id="pkSeg" role="group" aria-label="Jenis armada"></div></div>
+          <div class="an-stats" id="pkStats"></div>
+          <div class="an-table-wrap" id="pkTable"></div>
+        </section>
+      </div>
+
+      <div data-panel="stok" hidden>
+      <section class="an-card" aria-labelledby="anPredTitle">
+        <h3 id="anPredTitle">Stok vs prediksi kirim</h3>
+        <p class="an-sub">Prediksi kirim per hari memakai rata-rata bergerak berbobot 90 hari terakhir (30 hari terbaru berbobot paling besar). Stok tersedia sudah dikurangi rencana kirim hari ini dan besok. Klik salah satu kotak status untuk menyaring tabel.</p>
+        <div class="an-tiles" id="anTiles"></div>
+        <div class="an-filters">
+          <label>Gudang <select id="anFGudang"></select></label>
+          <label>Tren <select id="anFTren">
+            <option value="">Semua</option>
+            <option value="NAIK">Naik</option>
+            <option value="STABIL">Stabil</option>
+            <option value="TURUN">Turun</option>
+          </select></label>
+          <label class="an-sort-m">Urutkan <select id="anFSort">
+            <option value="prioritas">Prioritas</option>
+            <option value="kurang">Kekurangan terbanyak</option>
+            <option value="cukup">Cukup paling singkat</option>
+            <option value="kirim">Prediksi kirim tertinggi</option>
+            <option value="stok">Stok terbesar</option>
+          </select></label>
+          <label class="an-search">Cari <input type="search" id="anFQ" placeholder="Kode SKU atau nama produk" autocomplete="off"></label>
+        </div>
+        <div class="an-table-wrap" id="anPredTable"></div>
+        <div class="an-more"><span id="anPredCount"></span><button class="btn-ghost" id="anPredMore" type="button">Tampilkan 25 lagi</button></div>
+      </section>
+
+      <section class="an-card" aria-labelledby="anAkTitle">
+        <h3 id="anAkTitle">Akurasi prediksi kirim (uji mundur)</h3>
+        <p class="an-sub">Prediksi dibuat ulang seolah-olah pada lima tanggal acuan (30 sampai 150 hari lalu) dengan metode yang sama, lalu dibandingkan dengan realisasi 30 hari sesudahnya. Galat total menunjukkan seberapa meleset total volume (relevan untuk armada); WAPE menunjukkan galat per SKU, yang selalu lebih besar karena salah antar SKU tidak saling menutup.</p>
+        <p class="an-insight" id="anAkInsight"></p>
+        <div class="an-stats" id="akStats"></div>
+        <div class="an-table-wrap" id="akTable"></div>
+        <h4>SKU dengan volume terbesar: seberapa akurat prediksinya</h4>
+        <div class="an-filters"><span class="an-sort-m" id="akSkuSortM"></span></div>
+        <div class="an-table-wrap" id="akSkuTable"></div>
+        <div class="an-more"><span id="akSkuCount"></span><button class="btn-ghost" id="akSkuMore" type="button">Tampilkan lagi</button></div>
+      </section>
+
+      <section class="an-card" aria-labelledby="anSvkTitle">
+        <h3 id="anSvkTitle">Stok vs rata-rata kirim 90 hari</h3>
+        <p class="an-sub">Cara hitung yang lebih sederhana: total kirim 90 hari dibagi jumlah hari kirim (rata-rata datar). Bandingkan dengan kolom prediksi berbobot di atas untuk melihat SKU yang statusnya berbeda menurut kedua cara.</p>
+        <p class="an-insight" id="anSvkInsight"></p>
+        <div class="an-filters">
+          <label>Gudang <select id="svkG"></select></label>
+          <label>Status <select id="svkS"></select></label>
+          <label class="an-search">Cari <input type="search" id="svkQ" placeholder="Kode SKU atau nama produk" autocomplete="off"></label>
+          <span class="an-sort-m" id="svkSortM"></span>
+        </div>
+        <div class="an-table-wrap" id="svkTable"></div>
+        <div class="an-more"><span id="svkCount"></span><button class="btn-ghost" id="svkMore" type="button">Tampilkan lagi</button></div>
+      </section>
+
+      <section class="an-card" aria-labelledby="anStokTitle">
+        <h3 id="anStokTitle">Stok saat ini per SKU</h3>
+        <p class="an-sub">Isi upload stok terbaru: stok, rencana kirim hari ini dan besok, serta stok tersedia setelah dikurangi keduanya. Volume dihitung dari master produk, jadi SKU tanpa data volume tampil sebagai tanda strip.</p>
+        <div class="an-stats" id="stStats"></div>
+        <div class="an-filters">
+          <label>Gudang <select id="stG"></select></label>
+          <label class="an-search">Cari <input type="search" id="stQ" placeholder="Kode SKU atau nama produk" autocomplete="off"></label>
+          <span class="an-sort-m" id="stSortM"></span>
+        </div>
+        <div class="an-table-wrap" id="stTable"></div>
+        <div class="an-more"><span id="stCount"></span><button class="btn-ghost" id="stMore" type="button">Tampilkan lagi</button></div>
+      </section>
+      </div>
+
+      <div data-panel="prioritas" hidden>
+        <section class="an-card" aria-labelledby="anWarnTitle">
+          <h3 id="anWarnTitle">Peringatan data</h3>
+          <p class="an-sub">Pemeriksaan otomatis atas data sumber. Peringatan tingkat tinggi berarti angka di menu ini bisa menyesatkan sampai datanya diperbaiki.</p>
+          <ul class="an-alerts" id="warnList"></ul>
+        </section>
+
+        <section class="an-card" aria-labelledby="anPriTitle">
+          <h3 id="anPriTitle">Prioritas tindakan</h3>
+          <p class="an-sub">Menggabungkan status stok (prediksi berbobot) dengan kelas Pareto SKU. Urutan mengikuti jenis tindakan, lalu volume (m³) yang terdampak. Klik salah satu kotak untuk menyaring.</p>
+          <div class="an-tiles" id="priTiles"></div>
+          <div class="an-filters">
+            <label>Gudang <select id="priG"></select></label>
+            <label>Kelas SKU <select id="priK">
+              <option value="">Semua</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
+            </select></label>
+            <label class="an-search">Cari <input type="search" id="priQ" placeholder="Kode SKU atau nama produk" autocomplete="off"></label>
+            <span class="an-sort-m" id="priSortM"></span>
+          </div>
+          <div class="an-table-wrap" id="priTable"></div>
+          <div class="an-more"><span id="priCount"></span><button class="btn-ghost" id="priMore" type="button">Tampilkan lagi</button></div>
+        </section>
+
+        <section class="an-card" aria-labelledby="anParTitle">
+          <h3 id="anParTitle">Pareto: SKU dan pelanggan yang menentukan</h3>
+          <p class="an-sub">Berdasarkan karton terkirim 90 hari terakhir. Kelas A menyumbang sampai 80% kumulatif, B sampai 95%, C sisanya.</p>
+          <div class="an-toolbar"><div class="an-seg" id="parSeg" role="group" aria-label="Pilih dimensi">
+            <button type="button" data-par="SKU" aria-pressed="true">SKU</button>
+            <button type="button" data-par="PELANGGAN" aria-pressed="false">Pelanggan</button>
+          </div></div>
+          <div class="an-stats" id="parStats"></div>
+          <div class="an-filters"><span class="an-sort-m" id="parSortM"></span></div>
+          <div class="an-table-wrap" id="parTable"></div>
+          <div class="an-more"><span id="parCount"></span><button class="btn-ghost" id="parMore" type="button">Tampilkan lagi</button></div>
+        </section>
+      </div>
+
+      <div data-panel="tren" hidden>
+      <section class="an-card" aria-labelledby="anTrenTitle">
+        <h3 id="anTrenTitle">Tren penjualan bulanan</h3>
+        <p class="an-sub">Laju kirim per hari kirim, jadi bulan yang jumlah hari kirimnya berbeda tetap bisa dibandingkan. Bulan berjalan belum lengkap, sehingga angkanya masih bisa berubah.</p>
+        <div class="an-toolbar"><div class="an-seg" id="anMetricSeg" role="group" aria-label="Satuan tren">
+          <button type="button" data-metric="qty" aria-pressed="true">Karton / hari</button>
+          <button type="button" data-metric="m3" aria-pressed="false">m³ / hari</button>
+        </div></div>
+        <div id="anChart" class="an-chart"></div>
+        <p class="an-insight" id="anTrenInsight"></p>
+        <div class="an-table-wrap" id="anTrenGudang"></div>
+      </section>
+
+      <section class="an-card" aria-labelledby="anPelTitle">
+        <h3 id="anPelTitle">Tren per pelanggan</h3>
+        <p class="an-sub" id="anPelSub">Laju kirim (karton per hari kirim) tiap pelanggan pada empat bulan terakhir. Perubahan membandingkan dua bulan penuh terakhir.</p>
+        <div class="an-filters">
+          <label class="an-search">Cari <input type="search" id="plQ" placeholder="Nama pelanggan" autocomplete="off"></label>
+          <span class="an-sort-m" id="plSortM"></span>
+        </div>
+        <div class="an-table-wrap" id="plTable"></div>
+        <div class="an-more"><span id="plCount"></span><button class="btn-ghost" id="plMore" type="button">Tampilkan lagi</button></div>
+      </section>
+
+      <section class="an-card" aria-labelledby="anHrTitle">
+        <h3 id="anHrTitle">Rekap harian: volume dan trip</h3>
+        <p class="an-sub">Volume kirim per hari dari shipments, disandingkan dengan jumlah trip dari logistics. Batang biru muda adalah hari yang belum punya data trip.</p>
+        <div class="an-stats" id="hrStats"></div>
+        <div class="an-chart" id="hrChart"></div>
+        <div class="an-filters">
+          <label class="an-check"><input type="checkbox" id="hrTrip"> Hanya hari yang ada data trip</label>
+          <span class="an-sort-m" id="hrSortM"></span>
+        </div>
+        <div class="an-table-wrap" id="hrTable"></div>
+        <div class="an-more"><span id="hrCount"></span><button class="btn-ghost" id="hrMore" type="button">Tampilkan lagi</button></div>
+      </section>
+      </div>
+
+      <div data-panel="kirim" hidden>
+      <section class="an-card" aria-labelledby="anShipTitle">
+        <h3 id="anShipTitle">Ringkasan pengiriman</h3>
+        <p class="an-sub">Ringkasan dari seluruh baris shipments, per bulan. Volume hanya menghitung baris yang SKU-nya punya data volume di master produk.</p>
+        <div class="an-filters"><label>Bulan <select id="shBulan"></select></label></div>
+        <div class="an-stats" id="shStats"></div>
+        <div class="an-two">
+          <div><h4>Ekspedisi terbesar</h4><div class="an-table-wrap" id="shEks"></div></div>
+          <div><h4>Provinsi tujuan terbesar</h4><div class="an-table-wrap" id="shProv"></div></div>
+        </div>
+        <div id="shFefoBox"><h4>Kasus FEFO yang tercatat</h4><div class="an-table-wrap" id="shFefo"></div></div>
+      </section>
+
+      <section class="an-card" aria-labelledby="anKtTitle">
+        <h3 id="anKtTitle">Baris pengiriman terbesar: <span id="ktTanggal">—</span></h3>
+        <p class="an-sub">Maksimal 50 baris dengan volume terbesar pada tanggal pengiriman terakhir di shipments.</p>
+        <div class="an-filters">
+          <label class="an-search">Cari <input type="search" id="ktQ" placeholder="Produk, pelanggan, kota, atau ekspedisi" autocomplete="off"></label>
+          <span class="an-sort-m" id="ktSortM"></span>
+        </div>
+        <div class="an-table-wrap" id="ktTable"></div>
+        <div class="an-more"><span id="ktCount"></span><button class="btn-ghost" id="ktMore" type="button">Tampilkan lagi</button></div>
+      </section>
+      </div>
+
+      <div data-panel="biaya" hidden>
+      <section class="an-card" aria-labelledby="anBcTitle">
+        <h3 id="anBcTitle">Biaya tenaga kerja per karton</h3>
+        <p class="an-sub">Cost labour bulanan (biaya tenaga muat) dibagi total karton terkirim bulan tersebut (dari <code>shipments</code>), dibandingkan target dari <code>target_biaya_karton</code>. Status: <b>Efisien</b> jika biaya ≤ 90% target, <b>Efektif</b> jika dalam rentang ±10% target, <b>Boros</b> jika &gt; 110% target. Cost labour dan rata-rata jumlah karyawan diinput manual per bulan; total kirim selalu ikut data terbaru. Bulan yang belum ditutup tampil kosong sampai datanya diisi.</p>
+        <div class="an-stats" id="bcStats"></div>
+        <div id="bcChart" class="an-chart"></div>
+        <div class="an-table-wrap" id="bcTable"></div>
+      </section>
+
+      <section class="an-card" aria-labelledby="anEtTitle">
+        <h3 id="anEtTitle">Evaluasi target biaya per karton</h3>
+        <p class="an-sub">Apakah target di <code>target_biaya_karton</code> sudah wajar? Kartu ini membandingkannya dengan level biaya per karton yang biasanya terjadi, menghitung berapa bulan target itu tercapai, dan mengusulkan target lain. Cost labour bulanan hampir tetap sedangkan volume berubah-ubah, sehingga biaya per karton terutama ditentukan oleh volume; karena itu setiap target disertai volume minimum per bulan yang dibutuhkan untuk mencapainya.</p>
+        <div class="an-stats" id="etStats"></div>
+        <p class="an-sub" id="etVerdict" style="max-width:none"></p>
+        <div class="an-table-wrap" id="etTable"></div>
+        <p class="an-updated" id="etNote" style="margin-top:8px"></p>
+      </section>
+
+      <section class="an-card" aria-labelledby="anBcgTitle">
+        <h3 id="anBcgTitle">Biaya tenaga per gudang dan per hari</h3>
+        <p class="an-sub">Dari catatan harian yang diinput manual: jumlah pekerja dikali biaya per pekerja, dibagi qty dimuat. Hari tanpa catatan tidak muncul. Bila sebuah tanggal punya catatan gudang <b>SEMUA</b>, itulah total hari tersebut; bila tidak, totalnya adalah jumlah catatan semua gudang. Status memakai ambang yang sama dengan tabel bulanan di atas (target dari <code>target_biaya_karton</code>).</p>
+        <div class="an-note" id="bcgWarn" role="status" hidden></div>
+        <div class="an-filters">
+          <label>Bulan <select id="bcgBulan"></select></label>
+          <label>Gudang <select id="bcgGudang"></select></label>
+        </div>
+        <div class="an-stats" id="bcgStats"></div>
+        <div class="an-table-wrap" id="bcgGdTable"></div>
+        <h4 style="margin-top:18px">Biaya per karton per hari</h4>
+        <div class="an-chart" id="bcgChart"></div>
+        <div class="an-filters">
+          <label class="an-check"><input type="checkbox" id="bcgBoros"> Hanya catatan berstatus Boros</label>
+          <span class="an-sort-m" id="bcgSortM"></span>
+        </div>
+        <div class="an-table-wrap" id="bcgTable"></div>
+        <div class="an-more"><span id="bcgCount"></span><button class="btn-ghost" id="bcgMore" type="button">Tampilkan lagi</button></div>
+      </section>
+
+      <section class="an-card" aria-labelledby="anPjTitle">
+        <h3 id="anPjTitle">Proyeksi budget tenaga kerja bulan depan</h3>
+        <p class="an-sub">Volume = jumlah proyeksi kirim 22 hari semua SKU (rata-rata bergerak berbobot 90 hari, dari menu Stok). Budget = volume dikali biaya per karton dari bulan-bulan terakhir yang cost labour-nya sudah diisi, dalam skenario rendah, rata-rata, dan tinggi, dibandingkan dengan budget di target. Proyeksi ini tidak memperhitungkan musim, promosi, atau perubahan tarif.</p>
+        <div class="an-stats" id="pjStats"></div>
+        <div class="an-table-wrap" id="pjTable"></div>
+        <p class="an-updated" id="pjNote" style="margin-top:8px"></p>
+      </section>
+      </div>
+
+      <div data-panel="durasi" hidden>
+      <section class="an-card" aria-labelledby="anDrTitle">
+        <h3 id="anDrTitle">Durasi truk di lokasi</h3>
+        <p class="an-sub">Dihitung dari tabel <code>logistics</code>: selisih jam keluar (<code>time_out</code>) dan jam masuk (<code>time_in</code>). Trip berkategori <b>Lama</b> bila melewati persentil ke-90 seluruh trip. Data tidak mencatat jam mulai muat maupun jadwal keluar, sehingga waktu tunggu dan keterlambatan terhadap jadwal tidak bisa dihitung.</p>
+        <div class="an-note" id="drWarn" role="status" hidden></div>
+        <div class="an-stats" id="drStats"></div>
+        <div class="an-chart" id="drChart"></div>
+      </section>
+
+      <section class="an-card" aria-labelledby="anDrTblTitle">
+        <h3 id="anDrTblTitle">Ekspedisi dan armada yang paling sering lama</h3>
+        <p class="an-sub">Ringkasan seluruh data. Diurutkan menurut jumlah trip Lama (bukan persentase) supaya yang hanya punya satu dua trip tidak menutupi yang volumenya besar; lihat kolom Trip untuk menilai apakah datanya cukup.</p>
+        <div class="an-toolbar"><div class="an-seg" id="drDimSeg" role="group" aria-label="Kelompokkan menurut">
+          <button type="button" data-dim="EKSPEDISI" aria-pressed="true">Ekspedisi</button>
+          <button type="button" data-dim="ARMADA" aria-pressed="false">Armada</button>
+        </div></div>
+        <div class="an-filters"><span class="an-sort-m" id="drSortM"></span></div>
+        <div class="an-table-wrap" id="drTable"></div>
+        <div class="an-more"><span id="drCount"></span><button class="btn-ghost" id="drMore" type="button">Tampilkan lagi</button></div>
+      </section>
+      </div>
+
+      <div data-panel="master" hidden>
+      <section class="an-card" aria-labelledby="anKualTitle">
+        <h3 id="anKualTitle">Kelengkapan data master produk</h3>
+        <p class="an-sub">SKU yang belum punya volume atau berat tidak ikut terhitung di kebutuhan armada, sehingga hasilnya sedikit lebih kecil dari kenyataan.</p>
+        <div class="an-stats" id="anKualStats"></div>
+        <div class="an-table-wrap" id="anKualTable"></div>
+      </section>
+
+      </div>
+    </div>
+  </div><!-- /#page-analisis -->
+
+  <footer>SCM Control Tower - Lapisan Agregasi KPI <a onclick="toggleSettings()"></a></footer>
 
 </div>
 
@@ -349,6 +659,10 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<script src="assets/auth-guard.js"></script>
 <script src="app.js"></script>
+<script src="analisis.js"></script>
 </body>
 </html>

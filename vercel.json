@@ -3,6 +3,12 @@
   "functions": {
     "api/kpi.js": {
       "maxDuration": 10
+    },
+    "api/kpi/[zone].js": {
+      "maxDuration": 10
+    },
+    "api/analisis.js": {
+      "maxDuration": 15
     }
   }
 }

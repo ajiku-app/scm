@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daftarkan wajah — SCM Control Tower</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+  .en-card{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:28px 26px;}
+  .en-title{font-family:'Big Shoulders Display';font-weight:800;font-size:26px;margin:0 0 4px;}
+  .en-sub{color:var(--muted);font-size:13.5px;margin:0 0 20px;line-height:1.5;}
+  .en-video-wrap{position:relative;border-radius:10px;overflow:hidden;background:#000;aspect-ratio:4/3;margin-bottom:14px;border:1px solid var(--border);}
+  .en-video-wrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
+  .en-btn{width:100%;background:var(--steel);color:#0d1116;border:none;border-radius:8px;padding:11px;font:700 14px 'Inter';cursor:pointer;margin-top:8px;}
+  .en-btn:disabled{opacity:.55;cursor:not-allowed;}
+  .en-btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text);}
+  .en-msg{font-size:13px;line-height:1.55;border-radius:8px;padding:10px 12px;margin:0 0 16px;display:none;}
+  .en-msg.err{background:var(--bad-bg);border:1px solid var(--bad);color:#ffd7d5;display:block;}
+  .en-msg.ok{background:var(--good-bg);border:1px solid var(--good);color:#c9f3dd;display:block;}
+  .en-msg.info{background:var(--panel-2);border:1px solid var(--border);color:var(--muted);display:block;}
+</style>
+</head>
+<body>
+  <div class="en-card">
+    <h1 class="en-title">Daftarkan wajah</h1>
+    <p class="en-sub" id="enWho">Memeriksa akun…</p>
+    <div id="enMsg" class="en-msg"></div>
+    <div class="en-video-wrap"><video id="enVideo" muted playsinline></video></div>
+    <button type="button" class="en-btn" id="enBtn" disabled>Ambil &amp; simpan wajah saya</button>
+    <button type="button" class="en-btn secondary" id="enBack">Kembali ke login</button>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="assets/supabase-client.js"></script>
+<script src="assets/face-verify.js"></script>
+<script>
+(function () {
+  var sb = window.scmSupabase;
+  var msgEl = document.getElementById('enMsg');
+  var whoEl = document.getElementById('enWho');
+  var btn = document.getElementById('enBtn');
+  var videoEl = document.getElementById('enVideo');
+  var stream = null;
+
+  function showMsg(text, kind) {
+    msgEl.className = 'en-msg ' + (kind || 'info');
+    msgEl.textContent = text;
+    msgEl.style.display = text ? 'block' : 'none';
+  }
+
+  document.getElementById('enBack').addEventListener('click', function () {
+    SCM_FACE.stopCamera(stream);
+    window.location.href = 'login.html';
+  });
+
+  async function init() {
+    var sessRes = await sb.auth.getSession();
+    var session = sessRes.data && sessRes.data.session;
+    if (!session) { window.location.replace('login.html'); return; }
+    whoEl.textContent = 'Masuk sebagai ' + session.user.email + '. Wajah ini akan dipakai sebagai langkah kedua login Anda, menggantikan wajah yang lama bila sudah pernah didaftarkan.';
+    try {
+      showMsg('Memuat model pengenalan wajah…', 'info');
+      await SCM_FACE.loadModels();
+      stream = await SCM_FACE.startCamera(videoEl);
+      showMsg('Posisikan wajah di tengah kamera lalu klik tombol di bawah.', 'info');
+      btn.disabled = false;
+    } catch (e) {
+      showMsg('Kamera tidak bisa diakses: ' + (e.message || e), 'err');
+    }
+  }
+
+  btn.addEventListener('click', async function () {
+    btn.disabled = true;
+    showMsg('Mengambil gambar…', 'info');
+    try {
+      var descriptor = await SCM_FACE.captureDescriptor(videoEl);
+      var u = (await sb.auth.getUser()).data.user;
+      var upsert = await sb.from('fg_face_enrollment').upsert(
+        { user_id: u.id, descriptor: descriptor, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
+      if (upsert.error) throw upsert.error;
+      showMsg('Wajah tersimpan. Silakan login ulang untuk memverifikasinya.', 'ok');
+      SCM_FACE.stopCamera(stream);
+      setTimeout(function () { window.location.href = 'login.html?step=face'; }, 900);
+    } catch (e) {
+      showMsg('Gagal menyimpan: ' + (e.message || e), 'err');
+      btn.disabled = false;
+    }
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>

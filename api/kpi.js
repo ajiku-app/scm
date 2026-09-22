@@ -16,10 +16,17 @@
 //      masa depan tanpa mengubah kode client.
 
 const { ZONE_KEYS, fetchZoneLive } = require('./_lib/kpi-zones');
+const { requireUser } = require('./_lib/require-user');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     res.status(405).json({ ok: false, error: 'Method not allowed' });
+    return;
+  }
+
+  const auth = await requireUser(req);
+  if (!auth.ok) {
+    res.status(auth.status).json({ ok: false, error: auth.error });
     return;
   }
 
