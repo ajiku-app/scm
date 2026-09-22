@@ -5,6 +5,20 @@ const DATA_CONTRACT = {
   warehouse: { total_shipment:692, total_hari_kerja:66, avg_shipment_per_day:10.5, avg_picker_per_shipment:3.2, avg_muat_per_shipment:2.8, avg_stuffing_per_shipment:3.0, avg_crew_size:9.0, total_karyawan_terdaftar:31, total_kemunculan:6228, total_kemunculan_dikenali:4640, token_match_pct:74.5, top_karyawan_jumlah:142, avg_kendaraan_muat_per_hari:10.5, req_kendaraan_muat_per_hari:11 }
 };
 
+// Keamanan: semua field KPI yang dirender lewat innerHTML di file ini pada
+// dasarnya angka yang sudah lewat fmtInt/fmtPct/dst (sehingga tidak bisa
+// membawa HTML/skrip). Tapi beberapa field seperti "period" adalah TEKS
+// mentah dari respons live /api/kpi (endpoint Edge Function di server, di
+// luar kendali browser). Kalau teks itu pernah berisi karakter HTML — baik
+// karena datanya dimanipulasi di sumbernya atau endpoint berubah — jangan
+// sampai malah dieksekusi sebagai kode di browser pengguna yang sedang
+// login. esc() dipakai untuk menetralkan karakter HTML sebelum disisipkan.
+function esc(s){
+  return String(s===null||s===undefined?'':s).replace(/[&<>"']/g, c=>(
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+}
+
 // Konfigurasi endpoint (URL, API key) TIDAK lagi disimpan di browser.
 // Server (/api/kpi.js) yang menyimpan & memanggil endpoint live lewat environment
 // variable, sehingga tidak ada kunci/URL sensitif yang terekspos ke client.
@@ -483,7 +497,7 @@ function renderLogistics(d, status){
   badge.textContent = cls==='good' ? 'Sesuai Target' : (cls==='warn' ? 'Perlu Perhatian' : 'Di Bawah Target');
 
   const overPct = d.total_shipment>0 ? (d.over_sla_count/d.total_shipment*100) : 0;
-  const periodeLog = d.period ? ` <span style="color:var(--muted-2)">(periode ${d.period})</span>` : '';
+  const periodeLog = d.period ? ` <span style="color:var(--muted-2)">(periode ${esc(d.period)})</span>` : '';
   document.getElementById('insight-logistics').innerHTML =
     `<b>Insight:</b> ${fmtInt(d.over_sla_count)} dari ${fmtInt(d.total_shipment)} pengiriman (${fmtPct(overPct,0)}%) lewat SLA 90 menit. Loading terlama tercatat ${fmtHM(d.longest_load_minutes)}, rata-rata waktu tunggu driver ${fmtHM(d.avg_wait_minutes ?? 0)} — kandidat evaluasi rute/armada.${periodeLog}`;
 
@@ -523,7 +537,7 @@ function renderFefo(d, status){
   badge.className = 'zone-badge '+cls;
   badge.textContent = cls==='good' ? 'Sehat' : (cls==='warn' ? 'Perlu Perhatian' : 'Kritis');
 
-  const periodeFefo = d.period ? ` <span style="color:var(--muted-2)">(periode ${d.period})</span>` : '';
+  const periodeFefo = d.period ? ` <span style="color:var(--muted-2)">(periode ${esc(d.period)})</span>` : '';
   document.getElementById('insight-fefo').innerHTML =
     `<b>Insight:</b> Rotasi stok tertelusuri penuh (${fmtPct(d.traceability_pct,0)}%) dengan kepatuhan ${fmtPct(comp)}%, namun tercatat ${fmtInt(d.violation_count)} kejadian pelanggaran urutan FEFO pasti yang perlu dipantau. Penjualan (nilai terkirim) ${growth>=0?'tumbuh':'turun'} ${fmtPct(Math.abs(growth))}% vs periode sebelumnya.${periodeFefo}`;
 

@@ -7,7 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMwNzE0MjIiLz4KICA8cmVjdCB4PSIyIiB5PSIyIiB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHJ4PSIxMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMTczMjQ3IiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxwb2x5Z29uIHBvaW50cz0iMzIsMTAgNTEuMDUsMjEgNTEuMDUsNDMgMzIsNTQgMTIuOTUsNDMgMTIuOTUsMjEiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIyLjQiLz4KICA8dGV4dCB4PSIzMiIgeT0iMzMuNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBIZWx2ZXRpY2EsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiIGZvbnQtc2l6ZT0iOS41IiBsZXR0ZXItc3BhY2luZz0iMC4yIiBmaWxsPSIjZmZmZmZmIj5TQ008L3RleHQ+Cjwvc3ZnPgo=">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <div class="wrap">
@@ -24,11 +24,11 @@
       <div class="row"><span class="sync-pill" id="syncPill">● MENYIAPKAN…</span></div>
       <div id="lastUpdateText">Update terakhir: —</div>
       <div class="btn-row">
-        <button class="btn-ghost" id="refreshBtn" onclick="manualRefresh()">
+        <button class="btn-ghost" id="refreshBtn" data-action="manual-refresh">
           <svg id="refreshIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
           Segarkan
         </button>
-        <button class="btn-ghost" onclick="toggleSettings()">
+        <button class="btn-ghost" data-action="toggle-settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg>
           Konfigurasi
         </button>
@@ -89,7 +89,7 @@
           <option value="0">Manual saja</option>
         </select>
       </div>
-      <button class="btn-primary" onclick="saveAndApply()">Simpan &amp; Segarkan</button>
+      <button class="btn-primary" data-action="save-apply">Simpan &amp; Segarkan</button>
     </div>
     <details class="contract-details">
       <summary>Lihat kontrak data JSON yang diharapkan per zona</summary>
@@ -98,22 +98,22 @@
   </div>
 
   <div class="health">
-    <div class="health-score" onclick="openCombinedScoreModal()" style="cursor:pointer;">
+    <div class="health-score" data-action="open-combined-score" style="cursor:pointer;">
       <div class="num" id="healthScoreNum">--<span>/100</span></div>
       <div class="label">Skor Kesehatan Operasional Gabungan — rata-rata tertimbang dari 3 indikator utama di bawah. Klik untuk rincian.</div>
     </div>
     <div class="health-bars">
-      <div class="hbar-row" onclick="openKpiModal('stock-health')" style="cursor:pointer;">
+      <div class="hbar-row" data-kpi-modal="stock-health" style="cursor:pointer;">
         <span class="name">Kesehatan Stok FG</span>
         <div class="hbar-track"><div class="hbar-fill" id="bar-stock" style="width:0%;background:var(--warn);"></div></div>
         <span class="val" id="val-stock">--%</span>
       </div>
-      <div class="hbar-row" onclick="openKpiModal('log-sla')" style="cursor:pointer;">
+      <div class="hbar-row" data-kpi-modal="log-sla" style="cursor:pointer;">
         <span class="name">SLA Loading Logistik</span>
         <div class="hbar-track"><div class="hbar-fill" id="bar-sla" style="width:0%;background:var(--bad);"></div></div>
         <span class="val" id="val-sla">--%</span>
       </div>
-      <div class="hbar-row" onclick="openKpiModal('fefo-compliance')" style="cursor:pointer;">
+      <div class="hbar-row" data-kpi-modal="fefo-compliance" style="cursor:pointer;">
         <span class="name">Kepatuhan FEFO</span>
         <div class="hbar-track"><div class="hbar-fill" id="bar-fefo" style="width:0%;background:var(--good);"></div></div>
         <span class="val" id="val-fefo">--%</span>
@@ -132,27 +132,27 @@
         <span class="zone-badge warn" id="badge-stock">Perlu Perhatian</span>
       </div>
       <div class="kpi-grid">
-        <div class="kpi" onclick="openKpiModal('stock-health')">
+        <div class="kpi" data-kpi-modal="stock-health">
           <div class="v warn" id="kpi-stock-health">46.1%</div>
           <div class="l">Kesehatan Stok Keseluruhan</div>
           <div class="s" id="kpi-stock-healthsub">47 dari 102 SKU Aman</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('stock-forecast')">
+        <div class="kpi" data-kpi-modal="stock-forecast">
           <div class="v bad" id="kpi-stock-forecast">11.5%</div>
           <div class="l">Forecast Accuracy</div>
           <div class="s" id="kpi-stock-forecastsub">73/102 SKU terakurasi</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('stock-cap')">
+        <div class="kpi" data-kpi-modal="stock-cap">
           <div class="v bad" id="kpi-stock-cap">96.8%</div>
           <div class="l">Utilisasi Kapasitas Gudang</div>
           <div class="s" id="kpi-stock-capsub">6.729 / 6.948 pallet</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('stock-total')">
+        <div class="kpi" data-kpi-modal="stock-total">
           <div class="v neutral" id="kpi-stock-total">443.856</div>
           <div class="l">Total Stok Hari Ini (unit)</div>
           <div class="s" id="kpi-stock-totalsub">▼2,6% vs hari sebelumnya</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('stock-volume')">
+        <div class="kpi" data-kpi-modal="stock-volume">
           <div class="v neutral" id="kpi-stock-volume">0 L</div>
           <div class="l">Volume Stok</div>
           <div class="s" id="kpi-stock-volumesub">berdasarkan volume master produk</div>
@@ -171,32 +171,32 @@
         <span class="zone-badge bad" id="badge-logistics">Di Bawah Target</span>
       </div>
       <div class="kpi-grid">
-        <div class="kpi" onclick="openKpiModal('log-sla')">
+        <div class="kpi" data-kpi-modal="log-sla">
           <div class="v bad" id="kpi-log-sla">48%</div>
           <div class="l">SLA Loading</div>
           <div class="s">Target ≤ 90 menit</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('log-avg')">
+        <div class="kpi" data-kpi-modal="log-avg">
           <div class="v neutral" id="kpi-log-avg">1j 42m</div>
           <div class="l">Rata-rata Durasi Loading</div>
           <div class="s" id="kpi-log-avgsub">98 pengiriman terpantau</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('log-total')">
+        <div class="kpi" data-kpi-modal="log-total">
           <div class="v neutral" id="kpi-log-total">98 unit</div>
           <div class="l">Total Pengiriman</div>
           <div class="s" id="kpi-log-totalsub">18 ekspedisi aktif</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('log-longest')">
+        <div class="kpi" data-kpi-modal="log-longest">
           <div class="v bad" id="kpi-log-longest">5j 35m</div>
           <div class="l">Loading Terlama</div>
           <div class="s">Supriatna → Korea</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('log-wait')">
+        <div class="kpi" data-kpi-modal="log-wait">
           <div class="v neutral" id="kpi-log-wait">27m</div>
           <div class="l">Rata-rata Waktu Tunggu Driver</div>
           <div class="s" id="kpi-log-waitsub">sebelum proses loading dimulai</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('log-volveh')">
+        <div class="kpi" data-kpi-modal="log-volveh">
           <div class="v neutral" id="kpi-log-volveh">3,85 m³</div>
           <div class="l">Rata-rata Volume Muat / Kendaraan</div>
           <div class="s" id="kpi-log-volvehsub">volume produk ÷ jumlah armada</div>
@@ -215,37 +215,37 @@
         <span class="zone-badge good" id="badge-fefo">Sehat</span>
       </div>
       <div class="kpi-grid">
-        <div class="kpi" onclick="openKpiModal('fefo-compliance')">
+        <div class="kpi" data-kpi-modal="fefo-compliance">
           <div class="v good" id="kpi-fefo-compliance">93.07%</div>
           <div class="l">Kepatuhan FEFO</div>
           <div class="s">Seluruh gudang</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('fefo-dead')">
+        <div class="kpi" data-kpi-modal="fefo-dead">
           <div class="v good" id="kpi-fefo-dead">0%</div>
           <div class="l">Dead Stock / Near-Expired</div>
           <div class="s">Risiko kedaluwarsa</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('fefo-trace')">
+        <div class="kpi" data-kpi-modal="fefo-trace">
           <div class="v good" id="kpi-fefo-trace">100%</div>
           <div class="l">Batch Traceability</div>
           <div class="s">Qty tercatat kode batch</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('fefo-qty')">
+        <div class="kpi" data-kpi-modal="fefo-qty">
           <div class="v neutral" id="kpi-fefo-qty">3,55 jt ctn</div>
           <div class="l">Total Kuantitas Terkirim</div>
           <div class="s">Freshness SLED 99,9%</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('fefo-volume')">
+        <div class="kpi" data-kpi-modal="fefo-volume">
           <div class="v neutral" id="kpi-fefo-volume">0 L</div>
           <div class="l">Volume Barang Terkirim</div>
           <div class="s" id="kpi-fefo-volumesub">berdasarkan volume master produk</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('fefo-today-volume')">
+        <div class="kpi" data-kpi-modal="fefo-today-volume">
           <div class="v neutral" id="kpi-fefo-todayvolume">0 m³</div>
           <div class="l">Volume Pengiriman Hari Ini</div>
           <div class="s" id="kpi-fefo-todayvolumesub">vs rata-rata harian</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('fefo-growth')">
+        <div class="kpi" data-kpi-modal="fefo-growth">
           <div class="v neutral" id="kpi-fefo-growth">▲0%</div>
           <div class="l">Pertumbuhan Penjualan</div>
           <div class="s" id="kpi-fefo-growthsub">nilai terkirim vs periode sebelumnya</div>
@@ -264,42 +264,42 @@
         <span class="zone-badge warn" id="badge-warehouse">Perlu Perhatian</span>
       </div>
       <div class="kpi-grid">
-        <div class="kpi" onclick="openKpiModal('wh-shipday')">
+        <div class="kpi" data-kpi-modal="wh-shipday">
           <div class="v neutral" id="kpi-wh-shipday">10,5</div>
           <div class="l">Rata-rata Pengiriman / Hari Kerja</div>
           <div class="s" id="kpi-wh-shipdaysub">692 pengiriman / 66 hari kerja</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('wh-crew')">
+        <div class="kpi" data-kpi-modal="wh-crew">
           <div class="v neutral" id="kpi-wh-crew">9,0</div>
           <div class="l">Rata-rata Tenaga / Pengiriman</div>
           <div class="s" id="kpi-wh-crewsub">picker + muat + stuffing</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('wh-picker')">
+        <div class="kpi" data-kpi-modal="wh-picker">
           <div class="v neutral" id="kpi-wh-picker">3,2</div>
           <div class="l">Rata-rata Tim Picker / Pengiriman</div>
           <div class="s" id="kpi-wh-pickersub">orang per pengiriman</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('wh-muat')">
+        <div class="kpi" data-kpi-modal="wh-muat">
           <div class="v neutral" id="kpi-wh-muat">2,8</div>
           <div class="l">Rata-rata Tim Muat / Pengiriman</div>
           <div class="s" id="kpi-wh-muatsub">orang per pengiriman</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('wh-stuffing')">
+        <div class="kpi" data-kpi-modal="wh-stuffing">
           <div class="v neutral" id="kpi-wh-stuffing">3,0</div>
           <div class="l">Rata-rata Tim Stuffing / Pengiriman</div>
           <div class="s" id="kpi-wh-stuffingsub">orang per pengiriman</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('wh-match')">
+        <div class="kpi" data-kpi-modal="wh-match">
           <div class="v warn" id="kpi-wh-match">74,5%</div>
           <div class="l">Cakupan Pengenalan Nama Petugas</div>
           <div class="s" id="kpi-wh-matchsub">dari 31 karyawan terdaftar</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('wh-top')">
+        <div class="kpi" data-kpi-modal="wh-top">
           <div class="v neutral" id="kpi-wh-top">142</div>
           <div class="l">Petugas Paling Aktif (kemunculan)</div>
           <div class="s" id="kpi-wh-topsub">ILHAM</div>
         </div>
-        <div class="kpi" onclick="openKpiModal('wh-vehicle')">
+        <div class="kpi" data-kpi-modal="wh-vehicle">
           <div class="v neutral" id="kpi-wh-vehicle">11 unit</div>
           <div class="l">Kebutuhan Rata-rata Kendaraan Muat / Hari</div>
           <div class="s" id="kpi-wh-vehiclesub">≈10,5 pengiriman/hari, dibulatkan ke atas</div>
@@ -622,18 +622,18 @@
     </div>
   </div><!-- /#page-analisis -->
 
-  <footer>SCM Control Tower - Lapisan Agregasi KPI <a onclick="toggleSettings()"></a></footer>
+  <footer>SCM Control Tower - Lapisan Agregasi KPI <a data-action="toggle-settings"></a></footer>
 
 </div>
 
-<div class="modal-overlay" id="kpiModalOverlay" onclick="if(event.target===this) closeKpiModal()">
+<div class="modal-overlay" id="kpiModalOverlay" data-action="close-kpi-modal-if-self">
   <div class="modal-box">
     <div class="modal-head">
       <div>
         <span class="zone-tag" id="modalZoneTag">ZONA</span>
         <h3 id="modalTitle">Judul KPI</h3>
       </div>
-      <button class="modal-close" onclick="closeKpiModal()">✕</button>
+      <button class="modal-close" data-action="close-kpi-modal">✕</button>
     </div>
     <div class="modal-value-row">
       <span class="modal-value" id="modalValue">--</span>
@@ -653,45 +653,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="assets/supabase-client.js"></script>
-<script src="assets/auth-guard.js"></script>
-<script src="app.js"></script>
-<script src="analisis.js"></script>
-<script>
-(function () {
-  // Menampilkan hasil deteksi ekspresi wajah dari halaman login (kalau ada),
-  // maksimal 30 detik lalu hilang sendiri. Data ini cuma sekali pakai (dihapus
-  // dari sessionStorage begitu ditampilkan) dan tidak pernah dikirim ke server.
-  var MAX_MS = 30000;
-  try {
-    var raw = sessionStorage.getItem('scm_mood_result');
-    if (!raw) return;
-    sessionStorage.removeItem('scm_mood_result');
-    var data = JSON.parse(raw);
-    var age = Date.now() - (data.ts || 0);
-    if (age > MAX_MS) return; // sudah kedaluwarsa (mis. dari sesi lama), jangan tampilkan
-
-    var box = document.getElementById('moodBanner');
-    if (!box) return;
-    var el = document.createElement('div');
-    el.className = 'mood-banner' + (data.indikasiStres ? ' stres' : '');
-    el.innerHTML =
-      '<span class="mood-emoji">' + data.emoji + '</span>' +
-      '<span class="mood-text">Ekspresi terdeteksi saat login: <b>' + data.label + '</b> (' + data.percent + '%)' +
-      '<span class="mood-note">' + (data.indikasiStres
-        ? 'Indikasi tingkat stres cukup tinggi — bukan diagnosis, hanya perkiraan dari ekspresi wajah.'
-        : 'Perkiraan dari ekspresi wajah saat ini, bukan pengukuran medis.') + '</span></span>' +
-      '<button type="button" class="mood-close" aria-label="Tutup">×</button>';
-    box.appendChild(el);
-
-    var remaining = MAX_MS - age;
-    var timer = setTimeout(function () { el.remove(); }, remaining);
-    el.querySelector('.mood-close').addEventListener('click', function () {
-      clearTimeout(timer);
-      el.remove();
-    });
-  } catch (e) { /* abaikan bila sessionStorage/JSON bermasalah */ }
-})();
-</script>
+<script src="/assets/supabase-client.js"></script>
+<script src="/assets/auth-guard.js"></script>
+<script src="/app.js"></script>
+<script src="/analisis.js"></script>
+<script src="/assets/ui-events.js"></script>
+<script src="/assets/mood-banner.js"></script>
 </body>
 </html>

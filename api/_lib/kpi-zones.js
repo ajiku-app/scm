@@ -36,22 +36,46 @@ const ZONES = {
 const ZONE_KEYS = Object.keys(ZONES);
 const FETCH_TIMEOUT_MS = 8000;
 
+let warnedUrlZones = new Set();
+let warnedAnonKey = false;
+
 function resolveUrl(zoneKey) {
   const zone = ZONES[zoneKey];
   if (!zone) return null;
   const fromEnv = process.env[zone.envUrl];
-  return (fromEnv && fromEnv.trim()) || zone.defaultUrl;
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim();
+
+  // Keamanan/konfigurasi (temuan audit M-1): env var belum diisi, jatuh ke
+  // project Supabase contoh. Ini disengaja untuk kenyamanan demo, tapi kalau
+  // ini deployment produksi Anda sendiri, ini kemungkinan besar KESALAHAN
+  // KONFIGURASI (env var belum diisi di Vercel) — beri peringatan sekali per
+  // proses supaya terlihat di log server, bukan diam-diam terpakai.
+  if (!warnedUrlZones.has(zoneKey)) {
+    warnedUrlZones.add(zoneKey);
+    console.warn(
+      `[kpi-zones] Env var "${zone.envUrl}" belum diisi — memakai URL project Supabase ` +
+      `contoh sebagai fallback. Isi "${zone.envUrl}" di Vercel Environment Variables jika ini deployment Anda sendiri.`
+    );
+  }
+  return zone.defaultUrl;
 }
 
 function resolveAnonKey() {
-  return (
-    (process.env.SUPABASE_ANON_KEY && process.env.SUPABASE_ANON_KEY.trim()) ||
-    DEFAULT_SUPABASE_ANON_KEY
-  );
+  const fromEnv = process.env.SUPABASE_ANON_KEY && process.env.SUPABASE_ANON_KEY.trim();
+  if (fromEnv) return fromEnv;
+
+  if (!warnedAnonKey) {
+    warnedAnonKey = true;
+    console.warn(
+      '[kpi-zones] Env var "SUPABASE_ANON_KEY" belum diisi — memakai anon key project Supabase ' +
+      'contoh sebagai fallback. Isi "SUPABASE_ANON_KEY" di Vercel Environment Variables jika ini deployment Anda sendiri.'
+    );
+  }
+  return DEFAULT_SUPABASE_ANON_KEY;
 }
 
 async function fetchZoneLive(zoneKey) {
-  if (!ZONES[zoneKey]) {
+  if (!Object.prototype.hasOwnProperty.call(ZONES, zoneKey)) {
     return { status: 'error', data: null, error: `Zona tidak dikenal: "${zoneKey}".` };
   }
 

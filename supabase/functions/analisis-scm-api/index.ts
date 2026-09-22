@@ -177,7 +177,25 @@ async function buildBundle() {
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
-  if (API_KEY && req.headers.get("x-api-key") !== API_KEY) {
+
+  // Keamanan (fail-closed, temuan audit 22 Sep 2026): verify_jwt di Supabase
+  // meloloskan anon key sebagai JWT yang valid — dan anon key itu MEMANG
+  // publik (dipegang browser lewat assets/supabase-client.js). Jadi
+  // ANALISIS_API_KEY adalah SATU-SATUNYA gerbang nyata yang membedakan
+  // "server Vercel yang sudah mengecek login user" dari "siapa saja yang
+  // menyalin anon key dari kode client". Sebelumnya, kalau secret ini belum
+  // diisi, endpoint diam-diam TERBUKA untuk siapa saja (data SKU & pelanggan
+  // bisa diambil langsung tanpa login). Sekarang endpoint menolak SEMUA
+  // request selama secret belum dikonfigurasi — gagal aman, bukan gagal
+  // terbuka. Isi secret `ANALISIS_API_KEY` di Supabase → Edge Functions →
+  // Secrets, dan env var yang sama di Vercel, untuk mengaktifkan endpoint ini.
+  if (!API_KEY) {
+    return json(
+      { error: "Endpoint belum dikonfigurasi: secret ANALISIS_API_KEY belum diisi di Supabase." },
+      503,
+    );
+  }
+  if (req.headers.get("x-api-key") !== API_KEY) {
     return json({ error: "Unauthorized: header x-api-key tidak ada atau salah" }, 401);
   }
 

@@ -455,3 +455,17 @@
   .an-chart .sla{stroke:var(--muted-2);stroke-width:1;stroke-dasharray:4 3;}
   .an-note{font-size:12.5px;line-height:1.55;color:var(--warn);background:var(--warn-bg);border-left:3px solid var(--warn);border-radius:4px;padding:10px 12px;margin:0 0 14px;max-width:78ch;}
   .an-note code{color:inherit;word-break:break-word;}
+
+/* --- banner hasil deteksi ekspresi wajah (dari login), muncul di dashboard --- */
+.mood-banner{
+  display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:12px 14px;margin:0 0 16px;font-size:13px;color:var(--text);
+  animation:moodIn .25s ease;
+}
+.mood-banner.stres{border-color:rgba(232,97,92,.5);background:rgba(232,97,92,.10);}
+.mood-banner .mood-emoji{font-size:22px;line-height:1;}
+.mood-banner .mood-text{flex:1;min-width:0;}
+.mood-banner .mood-note{display:block;font-size:11.5px;color:var(--muted-2);margin-top:2px;}
+.mood-banner .mood-close{background:none;border:none;color:var(--muted-2);font-size:18px;line-height:1;cursor:pointer;padding:2px 4px;}
+.mood-banner .mood-close:hover{color:var(--text);}
+@keyframes moodIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}

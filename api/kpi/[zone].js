@@ -29,7 +29,12 @@ module.exports = async function handler(req, res) {
 
   const { zone } = req.query || {};
 
-  if (!zone || !ZONES[zone]) {
+  // Keamanan: cek keanggotaan dengan hasOwnProperty, bukan `!ZONES[zone]`.
+  // Object polos punya properti bawaan seperti __proto__/constructor yang
+  // ikut "truthy" lewat akses bracket, jadi zone="__proto__" bisa lolos
+  // pengecekan whitelist kalau memakai `!ZONES[zone]` saja (walau di sini
+  // dampaknya cuma error generik, bukan celah — tetap dirapikan).
+  if (!zone || !Object.prototype.hasOwnProperty.call(ZONES, zone)) {
     res.status(404).json({
       ok: false,
       error: `Zona tidak dikenal: "${zone}". Zona yang valid: ${Object.keys(ZONES).join(', ')}.`,

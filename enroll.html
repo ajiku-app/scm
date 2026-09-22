@@ -7,7 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMwNzE0MjIiLz4KICA8cmVjdCB4PSIyIiB5PSIyIiB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHJ4PSIxMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMTczMjQ3IiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxwb2x5Z29uIHBvaW50cz0iMzIsMTAgNTEuMDUsMjEgNTEuMDUsNDMgMzIsNTQgMTIuOTUsNDMgMTIuOTUsMjEiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIyLjQiLz4KICA8dGV4dCB4PSIzMiIgeT0iMzMuNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBIZWx2ZXRpY2EsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiIGZvbnQtc2l6ZT0iOS41IiBsZXR0ZXItc3BhY2luZz0iMC4yIiBmaWxsPSIjZmZmZmZmIj5TQ008L3RleHQ+Cjwvc3ZnPgo=">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/style.css">
 <style>
   body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
   .en-card{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:28px 26px;}
@@ -36,66 +36,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-<script src="assets/supabase-client.js"></script>
-<script src="assets/face-verify.js"></script>
-<script>
-(function () {
-  var sb = window.scmSupabase;
-  var msgEl = document.getElementById('enMsg');
-  var whoEl = document.getElementById('enWho');
-  var btn = document.getElementById('enBtn');
-  var videoEl = document.getElementById('enVideo');
-  var stream = null;
-
-  function showMsg(text, kind) {
-    msgEl.className = 'en-msg ' + (kind || 'info');
-    msgEl.textContent = text;
-    msgEl.style.display = text ? 'block' : 'none';
-  }
-
-  document.getElementById('enBack').addEventListener('click', function () {
-    SCM_FACE.stopCamera(stream);
-    window.location.href = 'login.html';
-  });
-
-  async function init() {
-    var sessRes = await sb.auth.getSession();
-    var session = sessRes.data && sessRes.data.session;
-    if (!session) { window.location.replace('login.html'); return; }
-    whoEl.textContent = 'Masuk sebagai ' + session.user.email + '. Wajah ini akan dipakai sebagai langkah kedua login Anda, menggantikan wajah yang lama bila sudah pernah didaftarkan.';
-    try {
-      showMsg('Memuat model pengenalan wajah…', 'info');
-      await SCM_FACE.loadModels();
-      stream = await SCM_FACE.startCamera(videoEl);
-      showMsg('Posisikan wajah di tengah kamera lalu klik tombol di bawah.', 'info');
-      btn.disabled = false;
-    } catch (e) {
-      showMsg('Kamera tidak bisa diakses: ' + (e.message || e), 'err');
-    }
-  }
-
-  btn.addEventListener('click', async function () {
-    btn.disabled = true;
-    showMsg('Mengambil gambar…', 'info');
-    try {
-      var descriptor = await SCM_FACE.captureDescriptor(videoEl);
-      var u = (await sb.auth.getUser()).data.user;
-      var upsert = await sb.from('fg_face_enrollment').upsert(
-        { user_id: u.id, descriptor: descriptor, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id' }
-      );
-      if (upsert.error) throw upsert.error;
-      showMsg('Wajah tersimpan. Silakan login ulang untuk memverifikasinya.', 'ok');
-      SCM_FACE.stopCamera(stream);
-      setTimeout(function () { window.location.href = 'login.html?step=face'; }, 900);
-    } catch (e) {
-      showMsg('Gagal menyimpan: ' + (e.message || e), 'err');
-      btn.disabled = false;
-    }
-  });
-
-  init();
-})();
-</script>
+<script src="/assets/supabase-client.js"></script>
+<script src="/assets/face-verify.js"></script>
+<script src="/assets/enroll-page.js"></script>
 </body>
 </html>

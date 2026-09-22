@@ -8,12 +8,17 @@
 // Pola dan alasannya sama dengan api/kpi.js: URL & anon key dipegang server
 // (environment variable), bukan browser, dan tidak ada masalah CORS.
 //
-// Environment variable (opsional, ada default):
+// Environment variable:
 //   ANALISIS_API_URL   URL Edge Function, mis.
 //                      https://<project>.supabase.co/functions/v1/analisis-scm-api/all
-//   SUPABASE_ANON_KEY  sama dengan yang dipakai api/kpi.js
-//   ANALISIS_API_KEY   (opsional) kunci akses; isi nilai yang sama dengan secret
-//                      ANALISIS_API_KEY di Edge Function untuk mengunci endpoint
+//                      (opsional, ada default)
+//   SUPABASE_ANON_KEY  sama dengan yang dipakai api/kpi.js (opsional, ada default)
+//   ANALISIS_API_KEY   WAJIB diisi (temuan audit 22 Sep 2026, C-1): Edge Function
+//                      `analisis-scm-api` sekarang menolak semua request bila secret
+//                      ini kosong (fail-closed) — sebelumnya endpoint itu diam-diam
+//                      terbuka untuk siapa saja yang memegang anon key (yang memang
+//                      publik di client). Isi nilai yang sama persis dengan secret
+//                      ANALISIS_API_KEY di Supabase → Edge Functions → Secrets.
 
 const { resolveAnonKey } = require('./_lib/kpi-zones');
 const { requireUser } = require('./_lib/require-user');
@@ -21,6 +26,8 @@ const { requireUser } = require('./_lib/require-user');
 const DEFAULT_URL =
   'https://qbougldvlmceeqceduae.supabase.co/functions/v1/analisis-scm-api/all';
 const TIMEOUT_MS = 12000;
+let warnedUrl = false;
+let warnedNoAccessKey = false;
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -35,6 +42,13 @@ module.exports = async function handler(req, res) {
   }
 
   const url = (process.env.ANALISIS_API_URL || '').trim() || DEFAULT_URL;
+  if (url === DEFAULT_URL && !warnedUrl) {
+    warnedUrl = true;
+    console.warn(
+      '[api/analisis] Env var "ANALISIS_API_URL" belum diisi — memakai URL project Supabase ' +
+      'contoh sebagai fallback. Isi di Vercel Environment Variables jika ini deployment Anda sendiri.'
+    );
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -45,9 +59,19 @@ module.exports = async function handler(req, res) {
       headers.apikey = anonKey;
       headers.Authorization = `Bearer ${anonKey}`;
     }
-    // Kunci akses opsional: aktif bila ANALISIS_API_KEY diisi di Vercel DAN di secret Edge Function.
+    // WAJIB diisi di Vercel DAN sama persis dengan secret di Edge Function
+    // (lihat catatan di atas berkas ini). Tanpa ini, panggilan ke Edge
+    // Function akan ditolak 503 oleh perbaikan fail-closed yang baru.
     const accessKey = (process.env.ANALISIS_API_KEY || '').trim();
-    if (accessKey) headers['x-api-key'] = accessKey;
+    if (accessKey) {
+      headers['x-api-key'] = accessKey;
+    } else if (!warnedNoAccessKey) {
+      warnedNoAccessKey = true;
+      console.warn(
+        '[api/analisis] Env var "ANALISIS_API_KEY" belum diisi di Vercel. Edge Function ' +
+        'analisis-scm-api akan menolak (503) sampai ini diisi — lihat laporan audit C-1.'
+      );
+    }
 
     const upstream = await fetch(url, { method: 'GET', headers, signal: controller.signal });
     if (!upstream.ok) {

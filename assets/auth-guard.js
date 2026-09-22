@@ -16,9 +16,9 @@
   var sb = window.scmSupabase;
 
   function toLogin(step) {
-    var here = encodeURIComponent(window.location.pathname.split('/').pop() || 'index.html');
+    var here = encodeURIComponent('/' + (window.location.pathname.split('/').pop() || 'index.html'));
     var q = step ? ('step=' + step + '&next=' + here) : ('next=' + here);
-    window.location.replace('login.html?' + q);
+    window.location.replace('/login.html?' + q);
   }
 
   async function guard() {
@@ -64,7 +64,7 @@
       ev.preventDefault();
       sessionStorage.removeItem('scm_face_ok');
       await sb.auth.signOut();
-      window.location.replace('login.html');
+      window.location.replace('/login.html');
     });
     wrap.appendChild(email);
     wrap.appendChild(document.createTextNode('·'));
@@ -81,8 +81,16 @@
   // panjang) karena browser sering menahan/menunda timer di tab background,
   // jadi setTimeout 5 menit saja bisa meleset jauh kalau tab tidak aktif.
   function startIdleLogout() {
-    var isTestMode = (new URLSearchParams(window.location.search)).get('idletest') === '1';
-    var IDLE_MS = isTestMode ? 15 * 1000 : 5 * 60 * 1000; // 15 detik saat mode uji, normalnya 5 menit
+    // Keamanan: parameter "?idletest=1" HANYA boleh berlaku saat dashboard
+    // diakses dari localhost (dev lokal via `vercel dev`). Kalau dibiarkan
+    // aktif di domain publik, siapa pun bisa mengubah perilaku
+    // auto-logout hanya dengan menambahkan query string di URL browser —
+    // logika keamanan tidak boleh dikontrol oleh input dari client/URL di
+    // production. Deteksi localhost sendiri tidak bisa dipalsukan lewat
+    // URL karena diambil dari window.location.hostname, bukan input user.
+    var isLocalHost = ['localhost', '127.0.0.1'].indexOf(window.location.hostname) !== -1;
+    var isTestMode = isLocalHost && (new URLSearchParams(window.location.search)).get('idletest') === '1';
+    var IDLE_MS = isTestMode ? 15 * 1000 : 5 * 60 * 1000; // 15 detik saat mode uji (localhost saja), normalnya 5 menit
     var CHECK_EVERY_MS = isTestMode ? 2 * 1000 : 10 * 1000;
     var lastActivity = Date.now();
     var loggedOut = false;
@@ -96,7 +104,7 @@
         sessionStorage.removeItem('scm_face_ok');
         await sb.auth.signOut();
       } catch (e) { /* tetap lanjut redirect walau signOut gagal */ }
-      window.location.replace('login.html?reason=idle');
+      window.location.replace('/login.html?reason=idle');
     }
 
     function checkIdle() {
