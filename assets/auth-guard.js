@@ -74,10 +74,60 @@
 
   window.SCM_AUTH = { authFetch: authFetch };
 
+  // --- Auto-logout karena tidak ada aktivitas selama 5 menit ---------------
+  // Alasan keamanan: kalau dashboard dibiarkan terbuka tanpa disentuh, sesi
+  // dianggap berakhir supaya orang lain yang lewat tidak bisa langsung lihat
+  // data. Dicek berdasarkan SELISIH WAKTU ASLI (bukan cuma 1x setTimeout
+  // panjang) karena browser sering menahan/menunda timer di tab background,
+  // jadi setTimeout 5 menit saja bisa meleset jauh kalau tab tidak aktif.
+  function startIdleLogout() {
+    var isTestMode = (new URLSearchParams(window.location.search)).get('idletest') === '1';
+    var IDLE_MS = isTestMode ? 15 * 1000 : 5 * 60 * 1000; // 15 detik saat mode uji, normalnya 5 menit
+    var CHECK_EVERY_MS = isTestMode ? 2 * 1000 : 10 * 1000;
+    var lastActivity = Date.now();
+    var loggedOut = false;
+
+    function markActive() { lastActivity = Date.now(); }
+
+    async function onIdle() {
+      if (loggedOut) return;
+      loggedOut = true;
+      try {
+        sessionStorage.removeItem('scm_face_ok');
+        await sb.auth.signOut();
+      } catch (e) { /* tetap lanjut redirect walau signOut gagal */ }
+      window.location.replace('login.html?reason=idle');
+    }
+
+    function checkIdle() {
+      if (document.visibilityState === 'visible' && Date.now() - lastActivity >= IDLE_MS) {
+        onIdle();
+      }
+    }
+
+    ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'wheel'].forEach(function (evt) {
+      window.addEventListener(evt, markActive, { passive: true });
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        // Tab baru aktif lagi: cek dulu apakah sudah lewat 5 menit SEBELUM
+        // dianggap aktif (browser bisa menahan timer saat tab tersembunyi),
+        // baru anggap ini aktivitas baru kalau belum kena idle.
+        checkIdle();
+        if (!loggedOut) markActive();
+      }
+    });
+
+    setInterval(checkIdle, CHECK_EVERY_MS);
+  }
+
   // Jalankan sesegera mungkin; app.js/analisis.js menunggu event ini sebelum
   // memanggil authFetch pertama kalinya (lihat perubahan di app.js/analisis.js).
   window.SCM_AUTH_READY = guard().then(function (session) {
-    if (session) mountUserBadge(session);
+    if (session) {
+      mountUserBadge(session);
+      startIdleLogout();
+    }
     return session;
   });
 })();

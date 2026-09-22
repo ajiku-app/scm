@@ -17,14 +17,15 @@
       radial-gradient(1200px 700px at 78% 28%, rgba(91,156,216,.16), transparent 60%),
       url('assets/bg-biometric.jpg') center/cover no-repeat fixed;
   }
-  /* Kartu "menyatu" dengan background: kaca transparan + blur, bukan panel solid biasa. */
+  /* Kartu "menyatu" dengan background: overlay gelap tipis saja, tanpa blur berat,
+     supaya background biometric di belakangnya tetap jelas terlihat. */
   .login-card{
-    width:100%;max-width:420px;border-radius:16px;padding:30px 28px;
-    background:linear-gradient(165deg, rgba(26,32,39,.58), rgba(18,22,27,.68));
-    border:1px solid rgba(255,255,255,.14);
-    -webkit-backdrop-filter:blur(18px) saturate(150%);
-    backdrop-filter:blur(18px) saturate(150%);
-    box-shadow:0 24px 70px rgba(0,0,0,.55), 0 0 0 1px rgba(91,156,216,.10) inset, 0 1px 0 rgba(255,255,255,.06) inset;
+    width:100%;max-width:420px;border-radius:12px;padding:30px 28px;
+    background:rgba(8,12,18,.20);
+    border:1px solid rgba(255,255,255,.10);
+    -webkit-backdrop-filter:blur(2px) saturate(120%);
+    backdrop-filter:blur(2px) saturate(120%);
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
   }
   .login-brand{display:flex;align-items:center;gap:8px;color:#c7d0da;font:600 12px 'Inter';letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;}
   .login-brand .dot{width:7px;height:7px;border-radius:50%;background:var(--good);display:inline-block;box-shadow:0 0 8px var(--good);}
@@ -32,7 +33,7 @@
   .login-sub{color:#aab4bf;font-size:13.5px;margin:0 0 22px;line-height:1.5;}
   .lf-field{margin-bottom:14px;}
   .lf-field label{display:block;font-size:12.5px;color:#aab4bf;margin-bottom:6px;}
-  .lf-field input{width:100%;background:rgba(10,13,17,.45);border:1px solid rgba(255,255,255,.14);border-radius:8px;color:var(--text);padding:10px 12px;font:500 14px 'Inter';outline:none;}
+  .lf-field input{width:100%;background:rgba(8,12,18,.28);border:1px solid rgba(255,255,255,.22);border-radius:8px;color:var(--text);padding:10px 12px;font:500 14px 'Inter';outline:none;}
   .lf-field input:focus{border-color:var(--steel);box-shadow:0 0 0 3px rgba(91,156,216,.18);}
   .lf-btn{width:100%;background:var(--steel);color:#0d1116;border:none;border-radius:8px;padding:11px;font:700 14px 'Inter';cursor:pointer;margin-top:4px;box-shadow:0 6px 18px rgba(91,156,216,.3);}
   .lf-btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;}
@@ -49,6 +50,12 @@
   .lf-user-chip{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:9px 12px;margin-bottom:16px;font-size:13px;}
   .lf-user-chip a{color:var(--steel);text-decoration:none;font:600 12.5px 'Inter';}
   .lf-foot{text-align:center;margin-top:16px;color:#8b95a1;font-size:11.5px;}
+  .lf-mood{display:none;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:10px 12px;margin:0 0 14px;font-size:13px;color:#c7d0da;}
+  .lf-mood.show{display:flex;}
+  .lf-mood .lf-mood-emoji{font-size:20px;line-height:1;}
+  .lf-mood b{color:var(--text);}
+  .lf-mood.stres{background:rgba(232,97,92,.14);border-color:rgba(232,97,92,.45);color:#ffd7d5;}
+  .lf-mood-note{display:block;font-size:11px;color:#8b95a1;margin-top:2px;}
 </style>
 </head>
 <body>
@@ -81,6 +88,7 @@
       <div class="lf-video-wrap" id="lfVideoWrap">
         <video id="lfVideo" muted playsinline></video>
       </div>
+      <div id="lfMood" class="lf-mood"><span class="lf-mood-emoji" id="lfMoodEmoji">🙂</span><span><b id="lfMoodLabel">—</b><span class="lf-mood-note" id="lfMoodNote"></span></span></div>
       <button type="button" class="lf-btn" id="lfFaceBtn">Verifikasi wajah</button>
       <button type="button" class="lf-btn secondary" id="lfEnrollLink" style="margin-top:8px;display:none;">Daftarkan wajah saya</button>
     </div>
@@ -104,8 +112,34 @@
   var videoEl = document.getElementById('lfVideo');
   var videoWrap = document.getElementById('lfVideoWrap');
   var whoEl = document.getElementById('lfWhoAmI');
+  var moodEl = document.getElementById('lfMood');
+  var moodEmojiEl = document.getElementById('lfMoodEmoji');
+  var moodLabelEl = document.getElementById('lfMoodLabel');
+  var moodNoteEl = document.getElementById('lfMoodNote');
   var stream = null;
   var attempts = 0;
+
+  var EXPR_EMOJI = { neutral: '😐', happy: '😄', sad: '😔', angry: '😠', fearful: '😟', disgusted: '😖', surprised: '😲' };
+
+  function showMood(expressions) {
+    var sum = SCM_FACE.summarizeExpression(expressions);
+    if (!sum) { moodEl.className = 'lf-mood'; return; } // ekspresi tidak terbaca, sembunyikan saja
+    moodEmojiEl.textContent = EXPR_EMOJI[sum.key] || '🙂';
+    moodLabelEl.textContent = 'Ekspresi terdeteksi: ' + sum.label + ' (' + sum.percent + '%)';
+    moodNoteEl.textContent = sum.indikasiStres
+      ? 'Indikasi tingkat stres cukup tinggi — bukan diagnosis, hanya perkiraan dari ekspresi wajah.'
+      : 'Perkiraan dari ekspresi wajah saat ini, bukan pengukuran medis.';
+    moodEl.className = 'lf-mood show' + (sum.indikasiStres ? ' stres' : '');
+    try {
+      sessionStorage.setItem('scm_mood_result', JSON.stringify({
+        emoji: EXPR_EMOJI[sum.key] || '🙂',
+        label: sum.label,
+        percent: sum.percent,
+        indikasiStres: sum.indikasiStres,
+        ts: Date.now(),
+      }));
+    } catch (e) { /* sessionStorage tidak tersedia, abaikan */ }
+  }
 
   function showMsg(text, kind) {
     msgEl.className = 'lf-msg ' + (kind || 'info');
@@ -122,6 +156,7 @@
   async function enterFaceStep(session) {
     passStep.classList.remove('active');
     faceStep.classList.add('active');
+    moodEl.className = 'lf-mood';
     whoEl.textContent = (session.user.email || 'Akun') + ' — sesi terverifikasi, sekarang cek wajah';
     showMsg('Memuat model pengenalan wajah…', 'info');
     try {
@@ -160,7 +195,9 @@
     faceBtn.disabled = true;
     videoWrap.classList.add('busy');
     try {
-      var descriptor = await SCM_FACE.captureDescriptor(videoEl);
+      var capture = await SCM_FACE.captureDescriptorAndExpressions(videoEl);
+      var descriptor = capture.descriptor;
+      try { showMood(capture.expressions); } catch (e) { console.warn('Gagal menampilkan mood (diabaikan):', e); }
       var sessRes = await sb.auth.getSession();
       var token = sessRes.data && sessRes.data.session && sessRes.data.session.access_token;
       if (!token) throw new Error('Sesi login sudah berakhir, silakan masuk ulang.');
@@ -178,7 +215,7 @@
         sessionStorage.setItem('scm_face_ok', u.id);
         showMsg('Wajah cocok. Membuka dashboard…', 'ok');
         var dest = (new URLSearchParams(window.location.search)).get('next') || 'index.html';
-        setTimeout(function () { goTo(dest); }, 400);
+        setTimeout(function () { goTo(dest); }, 900);
         return;
       }
 
@@ -212,6 +249,9 @@
   // Kalau sesi login sudah ada (mis. diarahkan ke sini oleh auth-guard.js karena
   // wajah belum diverifikasi di tab ini), langsung lompat ke langkah wajah.
   (async function init() {
+    if ((new URLSearchParams(window.location.search)).get('reason') === 'idle') {
+      showMsg('Anda otomatis keluar karena 5 menit tidak ada aktivitas. Silakan masuk lagi.', 'info');
+    }
     var sessRes = await sb.auth.getSession();
     var session = sessRes.data && sessRes.data.session;
     if (session && paramStep() === 'face') {

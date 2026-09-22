@@ -52,20 +52,30 @@ window.SCM_FACE = (function () {
   }
 
   // Sama seperti captureDescriptor, tapi sekaligus membaca ekspresi wajah
-  // (faceExpressionNet) dari frame yang sama — jadi kamera cuma perlu
-  // menangkap gambar sekali saja untuk verifikasi + baca ekspresi.
-  // Mengembalikan { descriptor, expressions } di mana expressions berisi
-  // skor 0-1 untuk: neutral, happy, sad, angry, fearful, disgusted, surprised.
+  // (faceExpressionNet). Sengaja dijalankan sebagai DUA deteksi terpisah
+  // (bukan satu chain .withFaceDescriptor().withFaceExpressions()) karena
+  // kombinasi itu tidak selalu stabil di face-api.js — kalau digabung dan
+  // bagian ekspresinya gagal, deteksi wajah untuk LOGIN ikut gagal juga.
+  // Dengan dipisah, descriptor (untuk verifikasi identitas) tetap didapat
+  // walau pembacaan ekspresi gagal/tidak tersedia.
+  // Mengembalikan { descriptor, expressions } — expressions bisa null kalau
+  // gagal dibaca, dan itu TIDAK dianggap error (verifikasi tetap lanjut).
   async function captureDescriptorAndExpressions(videoEl) {
     await loadModels();
     var opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
-    var det = await faceapi
-      .detectSingleFace(videoEl, opts)
-      .withFaceLandmarks()
-      .withFaceDescriptor()
-      .withFaceExpressions();
+
+    var det = await faceapi.detectSingleFace(videoEl, opts).withFaceLandmarks().withFaceDescriptor();
     if (!det) throw new Error('Wajah tidak terdeteksi. Pastikan wajah terlihat jelas dan pencahayaan cukup, lalu coba lagi.');
-    return { descriptor: Array.from(det.descriptor), expressions: det.expressions };
+
+    var expressions = null;
+    try {
+      var detExpr = await faceapi.detectSingleFace(videoEl, opts).withFaceLandmarks().withFaceExpressions();
+      if (detExpr && detExpr.expressions) expressions = detExpr.expressions;
+    } catch (e) {
+      console.warn('Deteksi ekspresi wajah gagal (diabaikan, tidak memengaruhi login):', e);
+    }
+
+    return { descriptor: Array.from(det.descriptor), expressions: expressions };
   }
 
   var EXPR_LABEL = {
@@ -78,6 +88,7 @@ window.SCM_FACE = (function () {
   // skor angry+fearful+sad+disgusted vs happy+neutral+surprised). Ini BUKAN
   // pengukuran klinis, hanya perkiraan kasar dari model deteksi ekspresi umum.
   function summarizeExpression(expressions) {
+    if (!expressions) return null;
     var best = 'neutral', bestScore = -1;
     var stressScore = 0, calmScore = 0;
     Object.keys(EXPR_LABEL).forEach(function (key) {
