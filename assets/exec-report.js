@@ -16,12 +16,20 @@
 (function () {
   'use strict';
 
+  function $(id) { return document.getElementById(id); }
+
   if (typeof PptxGenJS === 'undefined') {
-    console.error('exec-report.js: pptxgenjs belum termuat.');
+    console.error('exec-report.js: pptxgenjs belum termuat (cek URL CDN di index.html).');
+    // Tampilkan pesan yang terlihat & nonaktifkan tombol, alih-alih diam saja —
+    // supaya kegagalan CDN di masa depan tidak terasa seperti tombol yang "tidak berjalan".
+    document.addEventListener('DOMContentLoaded', function () {
+      var b = $('execReportBtn');
+      if (b) { b.disabled = true; b.textContent = '⬇ Laporan tidak tersedia'; }
+      var el = $('execReportMsg');
+      if (el) { el.className = 'up-msg show err'; el.textContent = 'Gagal memuat pustaka pembuat PPTX (pptxgenjs) dari CDN. Cek koneksi internet atau hubungi admin.'; }
+    });
     return;
   }
-
-  function $(id) { return document.getElementById(id); }
 
   // ---------- format angka (duplikat sengaja dari app.js, lihat catatan di atas) ----------
   function fmtInt(n) { return Math.round(Number(n) || 0).toLocaleString('id-ID'); }
