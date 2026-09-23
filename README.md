@@ -132,6 +132,25 @@ jadi tidak menambah view atau memerlukan deploy ulang. Cost labour bulanan hampi
 sehingga biaya per karton terutama ditentukan oleh volume; karena itu setiap skenario target disertai volume minimum
 per bulan (dari model biaya tetap + variabel, regresi linear sederhana). Minimal perlu 3 bulan dengan cost labour terisi.
 
+### Sinkronisasi Shipments ↔ Logistics (baru)
+
+`shipments` dan `logistics` diisi dari sumber terpisah dan granularitasnya beda: `shipments` per baris
+surat jalan/SKU, `logistics` per trip mobil. Untuk menghubungkan keduanya dipakai kunci
+**`tanggal_posting` (shipments) = `tgl_date` (logistics)** dan **`no_mobil` yang sama di kedua tabel**,
+lewat view `v_shipments_per_armada_harian`.
+
+- **Level gabungan HARI + MOBIL, bukan per-trip.** Kalau 1 mobil (khususnya armada internal) jalan
+  lebih dari 1x sehari, tidak ada data jam di `shipments` untuk memisahkan surat jalan itu masuk trip
+  yang mana — jadi seluruh shipment hari itu untuk mobil itu digabung jadi satu baris di view, dan
+  ditandai `trip_gabungan = true` supaya jelas angkanya gabungan, bukan per-trip individual.
+- **`logistics.tgl_date`** adalah kolom bantu bertipe `date`, dikonversi otomatis dari `logistics.tgl`
+  (format aslinya teks bebas `DD/MM/YY`). Kolom `tgl` asli tidak diubah/dihapus.
+- **`shipments.no_mobil`** kolom baru (nullable — kosong untuk data historis sebelum kolom ini ada).
+  Diisi lewat upload CSV di tab "Upload Data"; nomor polisi dirapikan otomatis (spasi & huruf besar)
+  di sisi klien sebelum insert, supaya cocok dengan `logistics.no_mobil`.
+- Nomor surat jalan **tidak** dipakai sebagai kunci (1 trip mobil bisa bawa 1–9 surat jalan berbeda,
+  jadi tidak bisa jadi kunci 1:1 yang andal).
+
 ### Login + verifikasi wajah (baru)
 
 Dashboard ini sekarang WAJIB login sebelum bisa dibuka: email/password Supabase Auth, lalu

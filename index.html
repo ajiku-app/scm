@@ -40,6 +40,7 @@
   <nav class="tabs" aria-label="Menu utama">
     <a class="tab" id="tab-tower" href="#tower">Control Tower</a>
     <a class="tab" id="tab-analisis" href="#analisis">Analisis &amp; Prediksi</a>
+    <a class="tab" id="tab-upload" href="#upload">Upload Data</a>
   </nav>
 
   <div id="page-tower">
@@ -312,8 +313,14 @@
   </div>
 
   <div class="alerts">
-    <h2>Prioritas Eksekutif Summary</h2>
-    <p class="sub">Disaring otomatis dari ketiga aplikasi berdasarkan urgensi terhadap operasional gudang, dihitung ulang setiap kali data diperbarui.</p>
+    <div class="alerts-head">
+      <div>
+        <h2>Prioritas Eksekutif Summary</h2>
+        <p class="sub">Disaring otomatis dari ketiga aplikasi berdasarkan urgensi terhadap operasional gudang, dihitung ulang setiap kali data diperbarui.</p>
+      </div>
+      <button class="btn-primary" id="execReportBtn" type="button">⬇ Unduh Laporan Eksekutif (PPTX)</button>
+    </div>
+    <div class="up-msg" id="execReportMsg"></div>
     <ul class="alert-list" id="alertList">
       <li class="alert-item"><span class="alert-src">Sistem</span><p>Memuat data pertama…</p></li>
     </ul>
@@ -622,6 +629,67 @@
     </div>
   </div><!-- /#page-analisis -->
 
+  <div id="page-upload" hidden>
+    <section class="an-card">
+      <h3>Upload Data via CSV</h3>
+      <p class="an-sub">Isi tabel langsung ke database (Supabase) lewat browser Anda — hak akses tetap diatur oleh Row Level Security, sama seperti bagian lain aplikasi ini. Unduh dulu template CSV supaya nama &amp; urutan kolom pasti cocok, isi datanya, lalu unggah kembali di sini. File diproses di browser Anda; tidak ada data yang lewat server Vercel. Aturan format: angka desimal pakai titik atau koma tunggal (mis. <code>1234.5</code> atau <code>1234,5</code>), <b>tanpa</b> pemisah ribuan; tanggal wajib <code>YYYY-MM-DD</code> (mis. <code>2026-09-20</code>); kolom boleh dikosongkan kecuali ditandai wajib di preview.</p>
+    </section>
+
+    <section class="an-card" id="upCard-stock" data-up="stock">
+      <h3>Stock Monitoring FG <span class="up-scope-tag" id="upScope-stock">semua user login</span></h3>
+      <p class="an-sub">Mengisi tabel <code>fg_stock_items</code>. Setiap upload tercatat sebagai satu batch di <code>fg_stock_uploads</code> (nama file, tanggal, jumlah baris, siapa yang mengunggah) supaya bisa dilacak/dihapus per batch bila perlu.</p>
+      <div class="up-toolbar">
+        <a class="btn-ghost up-template" data-template="stock">⬇ Unduh template CSV</a>
+        <label class="btn-primary up-filebtn">Pilih file CSV<input type="file" accept=".csv,text/csv" id="upFile-stock"></label>
+        <span class="up-filename" id="upFilename-stock">Belum ada file dipilih</span>
+      </div>
+      <div class="up-msg" id="upMsg-stock"></div>
+      <div class="up-preview-wrap" id="upPreviewWrap-stock" hidden>
+        <div class="an-table-wrap"><table class="up-table" id="upPreview-stock"></table></div>
+        <div class="up-actions">
+          <span class="up-count" id="upCount-stock"></span>
+          <button class="btn-primary" id="upSubmit-stock" type="button" disabled>Upload ke database</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="an-card" id="upCard-logistics" data-up="logistics">
+      <h3>Logistics Monitoring <span class="up-scope-tag" id="upScope-logistics">semua user login</span></h3>
+      <p class="an-sub">Mengisi tabel <code>logistics</code>. Header CSV: <code>tgl,driver,no_mobil,ekspedisi,armada,provinsi,kota,picker,muat,stuffing,in,out</code>. Kolom <code>picker</code>, <code>muat</code>, dan <code>stuffing</code> bisa berisi lebih dari satu nama — pisahkan dengan tanda <code>|</code> di dalam satu sel (bukan koma, karena koma sudah dipakai sebagai pemisah kolom CSV), mis. <code>Budi|Sari|Amir</code>.</p>
+      <div class="up-toolbar">
+        <a class="btn-ghost up-template" data-template="logistics">⬇ Unduh template CSV</a>
+        <label class="btn-primary up-filebtn">Pilih file CSV<input type="file" accept=".csv,text/csv" id="upFile-logistics"></label>
+        <span class="up-filename" id="upFilename-logistics">Belum ada file dipilih</span>
+      </div>
+      <div class="up-msg" id="upMsg-logistics"></div>
+      <div class="up-preview-wrap" id="upPreviewWrap-logistics" hidden>
+        <div class="an-table-wrap"><table class="up-table" id="upPreview-logistics"></table></div>
+        <div class="up-actions">
+          <span class="up-count" id="upCount-logistics"></span>
+          <button class="btn-primary" id="upSubmit-logistics" type="button" disabled>Upload ke database</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="an-card" id="upCard-shipments" data-up="shipments">
+      <h3>Shipments (Pengiriman) <span class="up-scope-tag warn" id="upScope-shipments">khusus admin</span></h3>
+      <p class="an-sub">Mengisi tabel <code>shipments</code>. Header CSV: <code>kode_sku,nama_produk,kode_batch,gudang,kota_tujuan,provinsi,pelanggan,no_mobil,nama_ekspedisi,tanggal_posting,tanggal_kadaluarsa,qty,harga_satuan_idr,status</code>. Kolom <code>no_mobil</code> penting diisi — dipakai untuk menyinkronkan baris shipment ke trip yang sesuai di tabel <code>logistics</code> lewat kunci <code>tanggal_posting + no_mobil</code> (lihat view <code>v_shipments_per_armada_harian</code>). Format plat nomor dirapikan otomatis (spasi &amp; huruf besar) supaya konsisten dengan data logistics. Kolom tanggal (<code>tanggal_posting</code>, <code>tanggal_kadaluarsa</code>) wajib format <code>YYYY-MM-DD</code>. Tabel ini memuat data pelanggan &amp; tren penjualan yang sensitif, jadi lewat kebijakan database hanya akun dengan role <b>admin</b> yang boleh menulis ke sini — akun lain tetap bisa melihat dashboardnya tapi tombol upload akan nonaktif.</p>
+      <div class="up-toolbar">
+        <a class="btn-ghost up-template" data-template="shipments">⬇ Unduh template CSV</a>
+        <label class="btn-primary up-filebtn">Pilih file CSV<input type="file" accept=".csv,text/csv" id="upFile-shipments"></label>
+        <span class="up-filename" id="upFilename-shipments">Belum ada file dipilih</span>
+      </div>
+      <div class="up-msg" id="upMsg-shipments"></div>
+      <div class="up-preview-wrap" id="upPreviewWrap-shipments" hidden>
+        <div class="an-table-wrap"><table class="up-table" id="upPreview-shipments"></table></div>
+        <div class="up-actions">
+          <span class="up-count" id="upCount-shipments"></span>
+          <button class="btn-primary" id="upSubmit-shipments" type="button" disabled>Upload ke database</button>
+        </div>
+      </div>
+    </section>
+  </div><!-- /#page-upload -->
+
   <footer>SCM Control Tower - Lapisan Agregasi KPI <a data-action="toggle-settings"></a></footer>
 
 </div>
@@ -653,10 +721,14 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgenjs.bundle.js"></script>
 <script src="/assets/supabase-client.js"></script>
 <script src="/assets/auth-guard.js"></script>
 <script src="/app.js"></script>
 <script src="/analisis.js"></script>
+<script src="/assets/upload-page.js"></script>
+<script src="/assets/exec-report.js"></script>
 <script src="/assets/ui-events.js"></script>
 <script src="/assets/mood-banner.js"></script>
 </body>
