@@ -9,6 +9,9 @@
     },
     "api/analisis.js": {
       "maxDuration": 15
+    },
+    "api/biaya.js": {
+      "maxDuration": 10
     }
   },
   "headers": [

@@ -666,6 +666,11 @@ async function refreshAll(){
     latestStatus.stock = stockRes.status; latestStatus.logistics = logRes.status; latestStatus.fefo = fefoRes.status; latestStatus.warehouse = whRes.status;
     applyTrendIndicators();
     recordHistory();
+    // "Periode data" di masthead dihitung dari data menu Analisis & Prediksi
+    // (analisis.js), bukan dari zona KPI ini — minta analisis.js
+    // menyegarkannya juga supaya klik "Segarkan" di sini ikut memutakhirkan
+    // teksnya. Fire-and-forget: tidak menunggu/mem-block refresh KPI di atas.
+    if(window.SCM_REFRESH_PERIOD) window.SCM_REFRESH_PERIOD();
     if(document.getElementById('kpiModalOverlay').classList.contains('open') && activeKpiKey){
       if(activeKpiKey === '__combined') openCombinedScoreModal();
       else renderModalContent(activeKpiKey);
@@ -894,7 +899,16 @@ function closeKpiModal(){
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeKpiModal(); });
 
 function toggleSettings(){
-  document.getElementById('settingsPanel').classList.toggle('open');
+  const panel = document.getElementById('settingsPanel');
+  // Tombol "Konfigurasi" (dan link "Upload Data via CSV" di dalam panel ini)
+  // harus tetap berfungsi walau sedang berada di tab Analisis & Prediksi —
+  // panel ini cuma ada di dalam #page-tower, jadi pindah ke tab itu dulu.
+  if(location.hash && location.hash !== '#tower'){
+    location.hash = 'tower';
+    panel.classList.add('open');
+    return;
+  }
+  panel.classList.toggle('open');
 }
 
 function scheduleTimer(){

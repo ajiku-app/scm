@@ -33,22 +33,26 @@
           Konfigurasi
         </button>
       </div>
-      <div id="periodText" style="font-size:12px;">Periode data: 05 Jan 2026 – 09 Sep 2026</div>
+      <div id="periodText" style="font-size:12px;">Periode data: memuat…</div>
     </div>
   </div>
 
   <nav class="tabs" aria-label="Menu utama">
     <a class="tab" id="tab-tower" href="#tower">Control Tower</a>
     <a class="tab" id="tab-analisis" href="#analisis">Analisis &amp; Prediksi</a>
-    <a class="tab" id="tab-upload" href="#upload">Upload Data</a>
   </nav>
 
   <div id="page-tower">
 
   <div class="settings-panel" id="settingsPanel">
-    <h2>Konfigurasi Sumber Data</h2>
-    <p class="sub">Endpoint live dikonfigurasi oleh server lewat environment variable (lihat <code>.env.example</code>), bukan di browser — ini menghindari kunci API bocor ke client. Di sini Anda hanya mengatur zona mana yang boleh mencoba mengambil data live lewat <code>/api/kpi</code>. Jika dimatikan, gagal, atau server tidak terjangkau, Control Tower otomatis jatuh ke <b style="color:var(--text)">mode simulasi</b> berbasis data historis terakhir agar tampilan tetap berjalan.</p>
-    <div class="settings-grid">
+    <div class="settings-panel-head">
+      <div>
+        <h2>Konfigurasi Sumber Data</h2>
+        <p class="sub">Endpoint live dikonfigurasi oleh server lewat environment variable (lihat <code>.env.example</code>), bukan di browser — ini menghindari kunci API bocor ke client. Di sini Anda hanya mengatur zona mana yang boleh mencoba mengambil data live lewat <code>/api/kpi</code>. Jika dimatikan, gagal, atau server tidak terjangkau, Control Tower otomatis jatuh ke <b style="color:var(--text)">mode simulasi</b> berbasis data historis terakhir agar tampilan tetap berjalan.</p>
+      </div>
+      <a class="btn-ghost" href="#upload" id="goToUploadBtn">⬆ Upload Data via CSV</a>
+    </div>
+    <div class="settings-grid" style="margin-top:18px;">
       <div class="settings-card">
         <div class="sc-head"><span>Stock Monitoring FG</span>
           <label class="toggle"><input type="checkbox" id="stock-enabled"> Coba Live</label>
@@ -511,7 +515,7 @@
 
       <section class="an-card" aria-labelledby="anHrTitle">
         <h3 id="anHrTitle">Rekap harian: volume dan trip</h3>
-        <p class="an-sub">Volume kirim per hari dari shipments, disandingkan dengan jumlah trip dari logistics. Batang biru muda adalah hari yang belum punya data trip.</p>
+        <p class="an-sub"><b>Tanggal</b> = tanggal kirim: kolom Trip dan Kendaraan unik dihitung dari <code>logistics.tgl</code> (tanggal truk datang), sedangkan Karton, Volume, dan Berat dari <code>shipments.tanggal_posting</code> (tanggal posting surat jalan). Keduanya disatukan per hari. Batang biru muda adalah hari yang belum punya data trip. Muatan per trip dihitung dari pengiriman via ekspedisi saja (pengiriman lokal tidak punya data trip).</p>
         <div class="an-stats" id="hrStats"></div>
         <div class="an-chart" id="hrChart"></div>
         <div class="an-filters">
@@ -530,9 +534,12 @@
         <div class="an-filters"><label>Bulan <select id="shBulan"></select></label></div>
         <div class="an-stats" id="shStats"></div>
         <div class="an-two">
-          <div><h4>Ekspedisi terbesar</h4><div class="an-table-wrap" id="shEks"></div></div>
+          <div><h4>Pelanggan terbesar</h4><div class="an-table-wrap" id="shPel"></div></div>
           <div><h4>Provinsi tujuan terbesar</h4><div class="an-table-wrap" id="shProv"></div></div>
         </div>
+        <h4 style="margin-top:18px">Armada keluar per ekspedisi</h4>
+        <p class="an-updated">Jumlah trip (satu trip = satu truk keluar) dan kendaraan unik dari data logistik, yang hanya mencatat pengiriman via ekspedisi. Pengiriman lokal (mis. Serena Indopangan) tidak diunggah ke logistik sehingga tidak muncul di tabel ini. Bila memilih "Semua bulan", kendaraan unik tidak dijumlahkan antarbulan.</p>
+        <div class="an-table-wrap" id="shEks"></div>
         <div id="shFefoBox"><h4>Kasus FEFO yang tercatat</h4><div class="an-table-wrap" id="shFefo"></div></div>
       </section>
 
@@ -570,6 +577,21 @@
         <h3 id="anBcgTitle">Biaya tenaga per gudang dan per hari</h3>
         <p class="an-sub">Dari catatan harian yang diinput manual: jumlah pekerja dikali biaya per pekerja, dibagi qty dimuat. Hari tanpa catatan tidak muncul. Bila sebuah tanggal punya catatan gudang <b>SEMUA</b>, itulah total hari tersebut; bila tidak, totalnya adalah jumlah catatan semua gudang. Status memakai ambang yang sama dengan tabel bulanan di atas (target dari <code>target_biaya_karton</code>).</p>
         <div class="an-note" id="bcgWarn" role="status" hidden></div>
+        <details class="an-input" id="bcgForm">
+          <summary>Input catatan biaya tenaga harian</summary>
+          <div class="an-filters">
+            <label>Tanggal <input type="date" id="bcgInTgl"></label>
+            <label>Gudang <select id="bcgInGudang"><option>SEMUA</option><option>FG-01</option><option>FG-02</option><option>FG-03</option><option>FG-04</option></select></label>
+            <label>Jumlah pekerja <input type="number" id="bcgInPekerja" min="1" step="1" style="min-width:110px"></label>
+            <label>Biaya per pekerja (Rp/hari) <input type="number" id="bcgInTarif" min="1" step="1000" style="min-width:150px"></label>
+            <label>Qty dimuat (karton) <input type="number" id="bcgInQty" min="0" step="1" style="min-width:130px"></label>
+            <label>Jam kerja (opsional) <input type="number" id="bcgInJam" min="0" max="24" step="0.5" style="min-width:110px"></label>
+            <label>Catatan (opsional) <input type="text" id="bcgInCatatan" maxlength="300"></label>
+            <button class="btn-ghost" id="bcgInSave" type="button">Simpan</button>
+          </div>
+          <p class="an-updated" id="bcgInMsg" role="status"></p>
+          <p class="an-updated">Qty terisi otomatis dari total karton kirim pada tanggal itu (Rekap harian) dan bisa diubah. Menyimpan tanggal + gudang yang sama akan memperbarui catatan sebelumnya.</p>
+        </details>
         <div class="an-filters">
           <label>Bulan <select id="bcgBulan"></select></label>
           <label>Gudang <select id="bcgGudang"></select></label>

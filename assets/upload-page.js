@@ -67,7 +67,7 @@
       table: 'logistics',
       needsUploadBatch: false,
       columns: [
-        { key: 'tgl', headerLabel: 'tgl', match: ['tgl'], required: true, type: 'text' },
+        { key: 'tgl', headerLabel: 'tgl', match: ['tgl'], required: true, type: 'date', noFuture: true },
         { key: 'driver', headerLabel: 'driver', match: ['driver'], required: true, type: 'text' },
         { key: 'no_mobil', headerLabel: 'no_mobil', match: ['no_mobil'], required: false, type: 'text', normalize: normPlat },
         { key: 'ekspedisi', headerLabel: 'ekspedisi', match: ['ekspedisi'], required: false, type: 'text' },
@@ -161,6 +161,12 @@
         values[col.key] = s.split('|').map(function (x) { return x.trim(); }).filter(Boolean);
       } else if (col.type === 'date') {
         if (!DATE_RE.test(s)) { errors.push('kolom "' + col.headerLabel + '" harus format YYYY-MM-DD (isi: "' + s + '")'); return; }
+        var dt = new Date(s + 'T00:00:00Z');
+        if (isNaN(dt) || dt.toISOString().slice(0, 10) !== s) { errors.push('kolom "' + col.headerLabel + '" bukan tanggal yang valid (isi: "' + s + '")'); return; }
+        if (col.noFuture && dt.getTime() > Date.now() + 2 * 86400000) {
+          errors.push('kolom "' + col.headerLabel + '" berisi tanggal di masa depan ("' + s + '") — biasanya hari dan bulan tertukar (mis. 10 Jun tertulis 2026-10-06). Format sel di Excel sebagai teks YYYY-MM-DD lalu upload ulang');
+          return;
+        }
         values[col.key] = s;
       } else if (col.type === 'number') {
         var r = parseNum(s);
@@ -345,6 +351,11 @@
       showMsg(key, 'ok', '<b>Berhasil.</b> ' + done + ' baris ditambahkan ke <code>' + esc(cfg.table) + '</code>' +
         (cfg.needsUploadBatch ? ' (batch #' + uploadId + ' di fg_stock_uploads).' : '.'));
       resetCard(key);
+      // "Periode data" di masthead mengikuti data terbaru (v_harian /
+      // v_stok_terbaru) — minta analisis.js menyegarkannya langsung supaya
+      // tanggalnya ikut berubah begitu upload ini selesai, tanpa perlu
+      // pindah tab dulu.
+      if (window.SCM_REFRESH_PERIOD) window.SCM_REFRESH_PERIOD();
     } catch (e) {
       var progressNote = (e && typeof e._done === 'number' && e._done > 0) ? (' (' + e._done + ' baris sempat berhasil sebelum error ini.)') : '';
       showMsg(key, 'err', 'Gagal upload: ' + describeError(e) + progressNote);

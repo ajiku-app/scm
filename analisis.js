@@ -110,7 +110,7 @@
     harian: ['trip', 'kendaraan_unik', 'qty', 'm3', 'kg', 'baris_tanpa_volume', 'm3_per_trip', 'kg_per_trip'],
     stok: ['upload_id', 'stok_hari_ini', 'kirim_hari_ini', 'kirim_besok', 'product_planning', 'stok_available', 'qty_per_pallet', 'volume_produk', 'berat_produk', 'm3_per_karton', 'm3_stok', 'm3_kirim_hari_ini', 'm3_kirim_besok', 'kg_kirim_hari_ini', 'kg_kirim_besok'],
     svk: ['stok_hari_ini', 'kirim_hari_ini', 'kirim_besok', 'stok_available', 'qty_kirim_90h', 'hari_kirim_90h', 'rata2_kirim_per_hari', 'm3_stok', 'hari_cukup'],
-    ship: ['baris', 'qty', 'm3', 'kg', 'baris_tanpa_volume'],
+    ship: ['baris', 'qty', 'm3', 'kg', 'baris_tanpa_volume', 'trip', 'kendaraan_unik'],
     kt: ['qty', 'm3', 'kg'],
     akurasi: ['jumlah_baris', 'aktual_per_hari', 'prediksi_berbobot_per_hari', 'prediksi_datar_per_hari', 'wape_berbobot_pct', 'wape_datar_pct', 'bias_berbobot_pct', 'bias_datar_pct', 'error_total_berbobot_pct', 'error_total_datar_pct'],
     pareto: ['peringkat', 'qty', 'm3', 'porsi_pct', 'kumulatif_pct'],
@@ -131,32 +131,64 @@
       return o;
     });
   }
+  // Validasi baris: view Supabase bisa mengembalikan baris "yatim" pasca
+  // upload — mis. SKU di shipments yang belum ada di stok terbaru, atau
+  // baris logistics yang belum ketemu pasangannya — hasilnya kolom kunci
+  // (kode SKU, gudang, tanggal, dst.) kosong walau baris numeriknya sendiri
+  // ada. Baris begini bukan "0" yang valid, tapi baris tidak lengkap yang
+  // membingungkan kalau ikut ditampilkan di tabel. clean() membuang baris
+  // yang kolom kuncinya kosong SEBELUM dirender di mana pun (tabel, filter
+  // dropdown, kartu ringkasan), dan mencatat berapa banyak yang dibuang
+  // supaya bisa ditampilkan sebagai peringatan (lihat normalize() di bawah).
+  function nonEmpty(v) { return v !== null && v !== undefined && String(v).trim() !== ''; }
+  function clean(rows, keys, label, report) {
+    var arr = Array.isArray(rows) ? rows : [];
+    var kept = arr.filter(function (r) { return keys.every(function (k) { return nonEmpty(r[k]); }); });
+    var dropped = arr.length - kept.length;
+    if (dropped > 0 && report) report.push({ label: label, dropped: dropped, total: arr.length, keys: keys });
+    return kept;
+  }
   function normalize(d) {
     d = d || {};
-    return {
+    var report = [];
+    var out = {
       generated_at: d.generated_at || null,
-      armada: conv(d.armada, NUM.armada),
+      armada: clean(conv(d.armada, NUM.armada), ['whs', 'periode'], 'Kebutuhan armada', report),
       kendaraan: conv(d.kendaraan, NUM.kendaraan),
-      prediksi: conv(d.prediksi, NUM.prediksi),
-      tren: conv(d.tren, NUM.tren),
-      sku: conv(d.sku_belum_master, NUM.sku),
-      harian: conv(d.harian, NUM.harian),
-      stok: conv(d.stok_terbaru, NUM.stok),
-      svk: conv(d.stok_vs_kirim, NUM.svk),
-      trenPel: conv(d.tren_pelanggan, NUM.tren),
-      ship: conv(d.shipments_ringkas, NUM.ship),
-      kt: conv(d.kirim_terbaru, NUM.kt),
-      akurasi: conv(d.akurasi, NUM.akurasi),
-      pareto: conv(d.pareto, NUM.pareto),
-      prioritas: conv(d.prioritas, NUM.prioritas),
-      peringatan: conv(d.peringatan, NUM.peringatan),
-      puncak: conv(d.hari_puncak, NUM.puncak),
-      biaya: conv(d.biaya_carton, NUM.biaya),
-      durHarian: conv(d.durasi_harian, NUM.durHarian),
-      durRingkas: conv(d.durasi_ringkas, NUM.durRingkas),
-      biayaGd: conv(d.biaya_harian_gudang, NUM.biayaGd),
+      prediksi: clean(conv(d.prediksi, NUM.prediksi), ['kode_sku', 'gudang'], 'Stok vs prediksi kirim', report),
+      tren: clean(conv(d.tren, NUM.tren), ['bulan', 'dimensi'], 'Tren bulanan', report),
+      sku: clean(conv(d.sku_belum_master, NUM.sku), ['kode_sku'], 'SKU belum lengkap di master', report),
+      harian: clean(conv(d.harian, NUM.harian), ['tanggal'], 'Rekap harian', report),
+      stok: clean(conv(d.stok_terbaru, NUM.stok), ['item_code', 'whs'], 'Stok saat ini', report),
+      svk: clean(conv(d.stok_vs_kirim, NUM.svk), ['item_code', 'whs'], 'Stok vs rata-rata kirim', report),
+      trenPel: clean(conv(d.tren_pelanggan, NUM.tren), ['bulan', 'kunci'], 'Tren per pelanggan', report),
+      ship: clean(conv(d.shipments_ringkas, NUM.ship), ['dimensi', 'bulan', 'kunci'], 'Ringkasan pengiriman', report),
+      kt: clean(conv(d.kirim_terbaru, NUM.kt), ['kode_sku'], 'Baris pengiriman terbesar', report),
+      akurasi: clean(conv(d.akurasi, NUM.akurasi), ['dimensi'], 'Akurasi prediksi', report),
+      pareto: clean(conv(d.pareto, NUM.pareto), ['dimensi', 'kunci'], 'Pareto', report),
+      prioritas: clean(conv(d.prioritas, NUM.prioritas), ['kode_sku', 'gudang'], 'Prioritas tindakan', report),
+      peringatan: clean(conv(d.peringatan, NUM.peringatan), ['judul', 'tingkat'], 'Peringatan data', report),
+      puncak: clean(conv(d.hari_puncak, NUM.puncak), ['armada'], 'Hari puncak armada', report),
+      biaya: clean(conv(d.biaya_carton, NUM.biaya), ['bulan'], 'Biaya per karton bulanan', report),
+      durHarian: clean(conv(d.durasi_harian, NUM.durHarian), ['tanggal'], 'Durasi truk harian', report),
+      durRingkas: clean(conv(d.durasi_ringkas, NUM.durRingkas), ['kunci', 'dimensi'], 'Durasi truk ringkas', report),
+      biayaGd: clean(conv(d.biaya_harian_gudang, NUM.biayaGd), ['tanggal', 'gudang'], 'Biaya tenaga per gudang harian', report),
       estimasi: conv(Array.isArray(d.estimasi_budget) ? d.estimasi_budget : (d.estimasi_budget ? [d.estimasi_budget] : []), NUM.estimasi)[0] || null
     };
+    // Baris yang dibuang tidak hilang diam-diam — muncul sebagai peringatan
+    // INFO di panel "Peringatan data" yang sudah ada, supaya kelihatan kalau
+    // ada data tidak konsisten pasca upload dan bisa ditelusuri sumbernya.
+    if (report.length) {
+      console.warn('[Analisis & Prediksi] Baris tidak lengkap disembunyikan dari tampilan (datanya sendiri tetap ada di Supabase, cuma tidak dirender karena kolom kuncinya kosong):', report);
+      out.peringatan = out.peringatan.concat(report.map(function (x) {
+        return {
+          tingkat: 'INFO', urutan: 900,
+          judul: 'Ditemukan ' + x.dropped + ' dari ' + x.total + ' baris tidak lengkap di "' + x.label + '"',
+          detail: 'Baris ini disembunyikan dari tabel karena kolom kunci (' + x.keys.join(', ') + ') kosong pada hasil query — biasanya karena salah satu dari tiga tabel upload (stok, logistics, shipments) belum sinkron saat view dihitung, mis. SKU/gudang di satu tabel belum ada pasangannya di tabel lain. Cek upload terakhir bila jumlahnya besar; baris akan otomatis muncul lagi begitu datanya lengkap.'
+        };
+      }));
+    }
+    return out;
   }
 
   // ---------- 1. kebutuhan armada ----------
@@ -312,7 +344,8 @@
       var m = statusMeta(r.status_prediksi);
       return '<tr><td class="l c-gud" data-label="Gudang">' + esc(r.gudang) + '</td>' +
         '<td class="prod">' + esc(r.produk) + '<span class="sku">' + esc(r.kode_sku) + '</span></td>' +
-        '<td class="c-stok" data-label="Stok tersedia">' + fInt(r.stok_available) + '</td>' +
+        '<td class="c-stok" data-label="Stok tersedia">' + fInt(r.stok_available) +
+        (r.stok_beda_gudang ? '<span class="an-stok-note" title="Stok SKU ini tercatat di gudang lain pada upload stok, sedangkan kirimnya dari gudang ini.">stok tercatat di ' + esc(r.gudang_stok) + '</span>' : '') + '</td>' +
         '<td class="c-pred" data-label="Prediksi kirim/hari">' + fInt(r.prediksi_kirim_per_hari) + '</td>' +
         '<td class="c-cukup" data-label="Cukup (hari)">' + fDec(r.hari_cukup_prediksi) + '</td>' +
         '<td class="c-tren" data-label="Tren 30 hari">' + trenCell(r) + '</td>' +
@@ -674,7 +707,7 @@
   function renderBiayaGudang() {
     var all = state.data.biayaGd;
     if (!all.length) {
-      showNote('bcgWarn', '<b>Belum ada catatan biaya tenaga harian.</b> Tabel <code>biaya_tenaga_harian</code> masih kosong. Isi lewat menu input biaya (Edge Function <code>biaya-tenaga-api</code>); analisis per gudang dan per hari muncul otomatis setelah ada catatan.');
+      showNote('bcgWarn', '<b>Belum ada catatan biaya tenaga harian.</b> Tabel <code>biaya_tenaga_harian</code> masih kosong. Isi lewat kotak <b>Input catatan biaya tenaga harian</b> di bawah; analisis per gudang dan per hari muncul otomatis setelah ada catatan.');
       $('bcgStats').innerHTML = ''; $('bcgChart').innerHTML = ''; $('bcgGdTable').innerHTML = '';
       fillSelect('bcgBulan', [], 'Belum ada bulan'); fillSelect('bcgGudang', [], 'Semua gudang');
       bcgTable.render();
@@ -1263,10 +1296,29 @@
           '</td><td data-label="Porsi karton">' + (total > 0 ? nf1.format(e.qty / total * 100) + '%' : '—') + '</td></tr>';
       }).join('') + '</tbody></table>';
   }
+  // Armada keluar per ekspedisi (dimensi ARMADA_EKSPEDISI, dari logistics): trip dan kendaraan unik.
+  function armadaAgg(month) {
+    var by = {};
+    state.data.ship.forEach(function (r) {
+      if (r.dimensi !== 'ARMADA_EKSPEDISI' || (month && r.bulan !== month)) return;
+      var e = by[r.kunci] || (by[r.kunci] = { kunci: r.kunci, trip: 0, kend: 0 });
+      e.trip += r.trip || 0; e.kend += r.kendaraan_unik || 0;
+    });
+    return Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return b.trip - a.trip; });
+  }
+  function armadaTable(rows, showKend) {
+    if (!rows.length) return '<p class="an-updated">Belum ada data trip pada periode ini.</p>';
+    var total = rows.reduce(function (a, e) { return a + e.trip; }, 0);
+    return '<table class="an-table an-cards"><thead><tr><th scope="col" class="l">Ekspedisi</th><th scope="col">Armada keluar (trip)</th><th scope="col">Kendaraan unik</th><th scope="col">Porsi trip</th></tr></thead><tbody>' +
+      rows.map(function (e) {
+        return '<tr><td class="l prod">' + esc(e.kunci) + '</td><td data-label="Armada keluar (trip)">' + fInt(e.trip) + '</td><td data-label="Kendaraan unik">' + (showKend ? fInt(e.kend) : '—') +
+          '</td><td data-label="Porsi trip">' + (total > 0 ? nf1.format(e.trip / total * 100) + '%' : '—') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
   function renderShip() {
     var ms = shipMonths();
     if (!ms.list.length) {
-      $('shStats').innerHTML = ''; $('shEks').innerHTML = ''; $('shProv').innerHTML = '';
+      $('shStats').innerHTML = ''; $('shEks').innerHTML = ''; $('shPel').innerHTML = ''; $('shProv').innerHTML = '';
       $('shFefoBox').hidden = true;
       $('shStats').innerHTML = '<p class="an-updated">Belum ada data pengiriman.</p>';
       return;
@@ -1291,7 +1343,8 @@
       statHtml(fInt(tot.m3) + ' m³', 'Volume kirim', tot.baris ? nf1.format(tot.tv / tot.baris * 100) + '% baris tanpa data volume, jadi angka ini lebih kecil dari kenyataan' : '') +
       statHtml(fInt(tot.kg / 1000) + ' ton', 'Berat kirim', 'dari baris yang punya data berat') +
       statHtml(tot.qty ? nf1.format((exp ? exp.qty : 0) / tot.qty * 100) + '%' : '—', 'Porsi ekspor', 'dari total karton; sisanya lokal');
-    $('shEks').innerHTML = miniTable(shipAgg('EKSPEDISI', month).slice(0, 10), 'Ekspedisi', tot.qty);
+    $('shPel').innerHTML = miniTable(shipAgg('PELANGGAN', month).slice(0, 10), 'Pelanggan', tot.qty);
+    $('shEks').innerHTML = armadaTable(armadaAgg(month).slice(0, 15), !!month);
     $('shProv').innerHTML = miniTable(shipAgg('PROVINSI', month).slice(0, 10), 'Provinsi', tot.qty);
     var fefo = shipAgg('FEFO', month);
     $('shFefoBox').hidden = !fefo.length;
@@ -1607,6 +1660,32 @@
       'lalu cek <code>ANALISIS_API_URL</code> dan <code>SUPABASE_ANON_KEY</code> di Vercel. Klik Segarkan untuk mencoba lagi.<br><code>' + esc(msg) + '</code>';
   }
 
+  // "Periode data" di masthead (dipakai di semua tab, bukan cuma #analisis) —
+  // dulu teks statis yang ditulis tangan di index.html dan tidak pernah
+  // berubah. Sekarang dihitung dari data asli: tanggal paling awal & paling
+  // akhir di v_harian (rekap harian, mencakup seluruh histori), dengan
+  // fallback ke upload_date dari v_stok_terbaru (dipakai README sebagai
+  // acuan "tanggal upload stok terbaru") kalau v_harian kosong. Dipanggil
+  // tiap kali load() berhasil, jadi otomatis mengikuti upload terbaru tanpa
+  // perlu diedit manual lagi.
+  function updateHeaderPeriod() {
+    var el = $('periodText');
+    if (!el) return;
+    var harian = (state.data && state.data.harian) || [];
+    var stok = (state.data && state.data.stok) || [];
+    var start = harian.length ? harian[0].tanggal : null;
+    var end = harian.length ? harian[harian.length - 1].tanggal : (stok.length ? stok[0].upload_date : null);
+    if (!start && !end) {
+      el.textContent = 'Periode data: tidak tersedia';
+      return;
+    }
+    el.textContent = 'Periode data: ' + (start ? fDate(start) : '—') + ' – ' + (end ? fDate(end) : '—');
+  }
+  // Dipanggil dari app.js (tombol "Segarkan" di masthead) dan upload-page.js
+  // (setelah upload CSV berhasil) supaya "Periode data" ikut ter-refresh
+  // tanpa harus pindah ke tab Analisis & Prediksi dulu.
+  window.SCM_REFRESH_PERIOD = function () { load(); };
+
   async function load() {
     if (state.loading) return;
     state.loading = true;
@@ -1625,6 +1704,7 @@
       $('anError').hidden = true;
       $('anBody').hidden = false;
       render();
+      updateHeaderPeriod();
       setPill('live');
       $('anUpdated').textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     } catch (e) {
@@ -1636,6 +1716,44 @@
       $('anRefreshIcon').classList.remove('spin');
     }
   }
+
+  // ---------- input biaya tenaga harian (POST /api/biaya) ----------
+  function bcgPrefillQty() {
+    var tgl = $('bcgInTgl').value, q = $('bcgInQty');
+    if (!tgl || !state.data || q.dataset.touched) return;
+    var row = state.data.harian.filter(function (r) { return ymd10(r.tanggal) === tgl; })[0];
+    q.value = row && isNum(row.qty) ? Math.round(row.qty) : '';
+  }
+  $('bcgInTgl').addEventListener('change', function () { $('bcgInQty').dataset.touched = ''; bcgPrefillQty(); });
+  $('bcgInQty').addEventListener('input', function () { this.dataset.touched = '1'; });
+  $('bcgForm').addEventListener('toggle', function () {
+    if (this.open && !$('bcgInTgl').value) {
+      var last = state.data && state.data.harian.length ? ymd10(state.data.harian[state.data.harian.length - 1].tanggal) : '';
+      $('bcgInTgl').value = last; bcgPrefillQty();
+    }
+  });
+  $('bcgInSave').addEventListener('click', async function () {
+    var msg = $('bcgInMsg'), btn = this;
+    var body = {
+      tanggal: $('bcgInTgl').value, gudang: $('bcgInGudang').value,
+      jumlah_pekerja: $('bcgInPekerja').value, biaya_per_pekerja: $('bcgInTarif').value,
+      qty_dimuat: $('bcgInQty').value, jam_kerja: $('bcgInJam').value, catatan: $('bcgInCatatan').value.trim()
+    };
+    btn.disabled = true; msg.textContent = 'Menyimpan…';
+    try {
+      if (window.SCM_AUTH_READY) await window.SCM_AUTH_READY;
+      var doFetch = (window.SCM_AUTH && window.SCM_AUTH.authFetch) || fetch;
+      var res = await doFetch('/api/biaya', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var json = null; try { json = await res.json(); } catch (_) { /* bukan JSON */ }
+      if (!res.ok || !json || !json.ok) throw new Error((json && json.error) || ('HTTP ' + res.status));
+      msg.textContent = 'Tersimpan: ' + fDate(body.tanggal) + ' · ' + body.gudang + '. Memuat ulang analisis…';
+      $('bcgInPekerja').value = ''; $('bcgInCatatan').value = '';
+      await load();
+      msg.textContent = 'Tersimpan: ' + fDate(body.tanggal) + ' · ' + body.gudang + '.';
+    } catch (e) {
+      msg.textContent = 'Gagal menyimpan: ' + (e && e.message ? e.message : e);
+    } finally { btn.disabled = false; }
+  });
 
   // ---------- interaksi ----------
   $('anRefresh').addEventListener('click', function () { load(); });
@@ -1738,7 +1856,11 @@
     var key = PAGES[h] ? h : 'tower';
     Object.keys(PAGES).forEach(function (k) {
       $(PAGES[k]).hidden = k !== key;
+      // 'upload' sekarang tidak punya tab sendiri di nav (diakses lewat
+      // tombol Konfigurasi -> link "Upload Data via CSV"), jadi elemen
+      // tab-upload tidak ada lagi di DOM.
       var tab = $('tab-' + k);
+      if (!tab) return;
       if (k === key) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
     });
     document.body.setAttribute('data-page', key);
@@ -1747,4 +1869,11 @@
   }
   window.addEventListener('hashchange', route);
   route();
+  // "Periode data" di masthead tampil di semua tab (bukan cuma #analisis),
+  // jadi datanya perlu dimuat sejak awal walau user mendarat di Control
+  // Tower — bukan cuma saat tab Analisis & Prediksi dibuka. load() sudah
+  // dijaga terhadap pemanggilan ganda lewat state.loading, jadi aman kalau
+  // route() di atas kebetulan sudah memicu load() juga (mis. saat buka
+  // langsung ke #analisis).
+  if (!state.data) load();
 })();
