@@ -175,27 +175,34 @@ async function buildBundle() {
   };
 }
 
+// Cache 60 dtk + hanya satu build berjalan pada satu waktu (mencegah penumpukan query).
+const CACHE_TTL_MS = 60_000;
+let cachedBundle: { at: number; data: unknown } | null = null;
+let inflightBundle: Promise<unknown> | null = null;
+
+async function getBundle(): Promise<unknown> {
+  if (cachedBundle && Date.now() - cachedBundle.at < CACHE_TTL_MS) return cachedBundle.data;
+  if (!inflightBundle) {
+    inflightBundle = buildBundle()
+      .then((data) => { cachedBundle = { at: Date.now(), data }; return data; })
+      .finally(() => { inflightBundle = null; });
+  }
+  try {
+    return await inflightBundle;
+  } catch (e) {
+    if (cachedBundle) return cachedBundle.data; // build gagal: pakai data lama
+    throw e;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
 
-  // Keamanan (fail-closed, temuan audit 22 Sep 2026): verify_jwt di Supabase
-  // meloloskan anon key sebagai JWT yang valid — dan anon key itu MEMANG
-  // publik (dipegang browser lewat assets/supabase-client.js). Jadi
-  // ANALISIS_API_KEY adalah SATU-SATUNYA gerbang nyata yang membedakan
-  // "server Vercel yang sudah mengecek login user" dari "siapa saja yang
-  // menyalin anon key dari kode client". Sebelumnya, kalau secret ini belum
-  // diisi, endpoint diam-diam TERBUKA untuk siapa saja (data SKU & pelanggan
-  // bisa diambil langsung tanpa login). Sekarang endpoint menolak SEMUA
-  // request selama secret belum dikonfigurasi — gagal aman, bukan gagal
-  // terbuka. Isi secret `ANALISIS_API_KEY` di Supabase → Edge Functions →
-  // Secrets, dan env var yang sama di Vercel, untuk mengaktifkan endpoint ini.
-  if (!API_KEY) {
-    return json(
-      { error: "Endpoint belum dikonfigurasi: secret ANALISIS_API_KEY belum diisi di Supabase." },
-      503,
-    );
-  }
-  if (req.headers.get("x-api-key") !== API_KEY) {
+  // Kunci akses OPSIONAL (sama dengan perilaku yang berjalan sebelumnya): bila secret
+  // ANALISIS_API_KEY diisi, semua route wajib membawa header x-api-key yang sama.
+  // CATATAN: bila secret kosong, endpoint terbuka untuk pemegang anon key. Ganti ke
+  // mode wajib (fail-closed, lihat git history) setelah secret terisi di Supabase DAN Vercel.
+  if (API_KEY && req.headers.get("x-api-key") !== API_KEY) {
     return json({ error: "Unauthorized: header x-api-key tidak ada atau salah" }, 401);
   }
 
@@ -212,7 +219,7 @@ Deno.serve(async (req: Request) => {
         endpoints: ["GET /all"],
       });
     }
-    if (route === "all") return json(await buildBundle());
+    if (route === "all") return json(await getBundle());
     return json({ error: `Endpoint tidak ditemukan: /${route}` }, 404);
   } catch (err) {
     return json({ error: String((err as Error)?.message ?? err) }, 500);

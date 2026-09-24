@@ -644,7 +644,7 @@ function tickClock(){
 }
 setInterval(tickClock, 1000);
 
-async function refreshAll(){
+async function refreshAll(opts){
   const icon = document.getElementById('refreshIcon');
   icon.classList.add('spin');
   try{
@@ -670,7 +670,9 @@ async function refreshAll(){
     // (analisis.js), bukan dari zona KPI ini — minta analisis.js
     // menyegarkannya juga supaya klik "Segarkan" di sini ikut memutakhirkan
     // teksnya. Fire-and-forget: tidak menunggu/mem-block refresh KPI di atas.
-    if(window.SCM_REFRESH_PERIOD) window.SCM_REFRESH_PERIOD();
+    // Hanya saat user menekan Segarkan (bukan timer 20 dtk): analisis membaca ~20 view
+    // di database, jadi tidak boleh ikut terpicu otomatis tiap siklus.
+    if(opts && opts.manual === true && window.SCM_REFRESH_PERIOD) window.SCM_REFRESH_PERIOD();
     if(document.getElementById('kpiModalOverlay').classList.contains('open') && activeKpiKey){
       if(activeKpiKey === '__combined') openCombinedScoreModal();
       else renderModalContent(activeKpiKey);
@@ -680,7 +682,7 @@ async function refreshAll(){
   }
 }
 
-function manualRefresh(){ refreshAll(); }
+function manualRefresh(){ refreshAll({ manual: true }); }
 
 let activeKpiKey = null;
 
