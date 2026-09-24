@@ -644,7 +644,7 @@ function tickClock(){
 }
 setInterval(tickClock, 1000);
 
-async function refreshAll(){
+async function refreshAll(opts){
   const icon = document.getElementById('refreshIcon');
   icon.classList.add('spin');
   try{
@@ -666,6 +666,13 @@ async function refreshAll(){
     latestStatus.stock = stockRes.status; latestStatus.logistics = logRes.status; latestStatus.fefo = fefoRes.status; latestStatus.warehouse = whRes.status;
     applyTrendIndicators();
     recordHistory();
+    // "Periode data" di masthead dihitung dari data menu Analisis & Prediksi
+    // (analisis.js), bukan dari zona KPI ini — minta analisis.js
+    // menyegarkannya juga supaya klik "Segarkan" di sini ikut memutakhirkan
+    // teksnya. Fire-and-forget: tidak menunggu/mem-block refresh KPI di atas.
+    // Hanya saat user menekan Segarkan (bukan timer 20 dtk): analisis membaca ~20 view
+    // di database, jadi tidak boleh ikut terpicu otomatis tiap siklus.
+    if(opts && opts.manual === true && window.SCM_REFRESH_PERIOD) window.SCM_REFRESH_PERIOD();
     if(document.getElementById('kpiModalOverlay').classList.contains('open') && activeKpiKey){
       if(activeKpiKey === '__combined') openCombinedScoreModal();
       else renderModalContent(activeKpiKey);
@@ -675,7 +682,7 @@ async function refreshAll(){
   }
 }
 
-function manualRefresh(){ refreshAll(); }
+function manualRefresh(){ refreshAll({ manual: true }); }
 
 let activeKpiKey = null;
 
@@ -894,7 +901,16 @@ function closeKpiModal(){
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeKpiModal(); });
 
 function toggleSettings(){
-  document.getElementById('settingsPanel').classList.toggle('open');
+  const panel = document.getElementById('settingsPanel');
+  // Tombol "Konfigurasi" (dan link "Upload Data via CSV" di dalam panel ini)
+  // harus tetap berfungsi walau sedang berada di tab Analisis & Prediksi —
+  // panel ini cuma ada di dalam #page-tower, jadi pindah ke tab itu dulu.
+  if(location.hash && location.hash !== '#tower'){
+    location.hash = 'tower';
+    panel.classList.add('open');
+    return;
+  }
+  panel.classList.toggle('open');
 }
 
 function scheduleTimer(){
