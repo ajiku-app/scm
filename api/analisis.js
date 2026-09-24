@@ -25,7 +25,7 @@ const { requireUser } = require('./_lib/require-user');
 
 const DEFAULT_URL =
   'https://qbougldvlmceeqceduae.supabase.co/functions/v1/analisis-scm-api/all';
-const TIMEOUT_MS = 12000;
+const TIMEOUT_MS = 25000;
 let warnedUrl = false;
 let warnedNoAccessKey = false;
 
