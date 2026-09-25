@@ -19,7 +19,7 @@
   // Basemaps API key CARTO — publik seperti token peta lain (Mapbox dsb.),
   // aman dipakai di client. Docs: https://carto.com/basemaps/apikey/
   var CARTO_API_KEY = 'cb1_30gl_1_2f654137b45a97f4e5b76e6d';
-  var CARTO_TILE_URL = 'https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?api_key=' + CARTO_API_KEY;
+  var CARTO_TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=' + CARTO_API_KEY;
   var CARTO_ATTRIBUTION = '&copy; <a href="https://carto.com/attribution">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   var petaMap = null, petaLayer = null;
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -1329,7 +1329,7 @@
     var host = $('anPetaMap');
     if (!petaMap) {
       petaMap = L.map(host, { center: [-2.5, 118], zoom: 5, scrollWheelZoom: true });
-      L.tileLayer(CARTO_TILE_URL, { attribution: CARTO_ATTRIBUTION, maxZoom: 19 }).addTo(petaMap);
+      L.tileLayer(CARTO_TILE_URL, { attribution: CARTO_ATTRIBUTION, subdomains: 'abcd', maxZoom: 19 }).addTo(petaMap);
       petaLayer = L.layerGroup().addTo(petaMap);
     }
     petaLayer.clearLayers();
