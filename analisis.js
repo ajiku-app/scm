@@ -21,7 +21,7 @@
   var CARTO_API_KEY = 'cb1_30gl_1_2f654137b45a97f4e5b76e6d';
   var CARTO_TILE_URL = 'https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=' + CARTO_API_KEY;
   var CARTO_ATTRIBUTION = '&copy; <a href="https://carto.com/attribution">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-  var petaMap = null, petaLayer = null;
+  var petaMap = null, petaLayer = null, petaMaxQty = 0;
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
   // ---------- helper ----------
@@ -1288,6 +1288,31 @@
       (row.tipe === 'negara' ? '<i class="ppb-flag" title="Luar negeri"></i>' : '') + '</div>';
     return L.divIcon({ html: html, className: 'ppb-icon-wrap', iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
   }
+  // Icon untuk cluster (gabungan beberapa wilayah yang berdekatan pada zoom
+  // level tertentu). Warna & ukuran dihitung dari total qty gabungan semua
+  // wilayah di dalam cluster itu, angka di badge = total pelanggan unik
+  // gabungan. petaMaxQty di-refresh tiap renderPetaMap() dan dibaca di sini
+  // lewat closure supaya skala ukuran tetap konsisten dengan marker tunggal.
+  function petClusterIcon(cluster) {
+    var markers = cluster.getAllChildMarkers();
+    var totalQty = 0, totalPelanggan = 0, hasNegara = false;
+    markers.forEach(function (m) {
+      var r = m.options.petRow || {};
+      totalQty += r.total_qty || 0;
+      totalPelanggan += r.jml_pelanggan || 0;
+      if (r.tipe === 'negara') hasNegara = true;
+    });
+    var b = petBucket(totalQty);
+    var min = 34, max = 64;
+    var ref = Math.max(petaMaxQty, totalQty);
+    var size = ref ? Math.round(min + (Math.sqrt(totalQty) / Math.sqrt(ref)) * (max - min)) : min;
+    var fontSize = Math.max(11, Math.round(size * 0.3));
+    var html = '<div class="ppb-badge ppb-cluster" style="width:' + size + 'px;height:' + size + 'px;background:' + b.color +
+      ';box-shadow:0 0 0 4px ' + b.ring + '66, 0 2px 8px rgba(0,0,0,.5);">' +
+      '<span style="font-size:' + fontSize + 'px;">' + esc(petCompact(totalPelanggan)) + '</span>' +
+      (hasNegara ? '<i class="ppb-flag" title="Termasuk luar negeri"></i>' : '') + '</div>';
+    return L.divIcon({ html: html, className: 'ppb-icon-wrap', iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+  }
   function petPopupHtml(r) {
     return '<div style="min-width:190px;font-family:inherit;">' +
       '<strong>' + esc(r.label) + '</strong>' +
@@ -1330,14 +1355,26 @@
     if (!petaMap) {
       petaMap = L.map(host, { center: [-2.5, 118], zoom: 5, scrollWheelZoom: true });
       L.tileLayer(CARTO_TILE_URL, { attribution: CARTO_ATTRIBUTION, maxZoom: 20 }).addTo(petaMap);
-      petaLayer = L.layerGroup().addTo(petaMap);
+      // markerClusterGroup: badge yang berdekatan (mis. Jabodetabek–Bandung)
+      // otomatis digabung jadi satu cluster bulat saat zoom out, lalu pecah
+      // sendiri (atau spiderfy) begitu di-zoom in / diklik, jadi tidak lagi
+      // saling tumpuk seperti pakai layerGroup biasa.
+      petaLayer = L.markerClusterGroup({
+        maxClusterRadius: 55,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        iconCreateFunction: petClusterIcon
+      });
+      petaLayer.addTo(petaMap);
     }
     petaLayer.clearLayers();
     var rows = petRows();
-    var maxQty = rows.reduce(function (m, r) { return Math.max(m, r.total_qty || 0); }, 0);
-    rows.forEach(function (r) {
-      L.marker([r.lat, r.lng], { icon: petBadgeIcon(r, maxQty) }).bindPopup(petPopupHtml(r)).addTo(petaLayer);
+    petaMaxQty = rows.reduce(function (m, r) { return Math.max(m, r.total_qty || 0); }, 0);
+    var markers = rows.map(function (r) {
+      return L.marker([r.lat, r.lng], { icon: petBadgeIcon(r, petaMaxQty), petRow: r }).bindPopup(petPopupHtml(r));
     });
+    petaLayer.addLayers(markers);
     setTimeout(function () { petaMap.invalidateSize(); }, 0);
   }
 
