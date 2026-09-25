@@ -13,7 +13,7 @@
 
   var ENDPOINT = '/api/analisis';
   var STALE_MS = 5 * 60 * 1000;
-  var PAGE_SIZE = 25;
+  var PAGE_SIZE = 10;
 
   // ---------- Peta sebaran pelanggan (CARTO basemap + Leaflet) ----------
   // Basemaps API key CARTO — publik seperti token peta lain (Mapbox dsb.),
@@ -64,7 +64,7 @@
     gudang: 'SEMUA',
     pf: { gudang: '', status: '', tren: '', q: '' },
     sort: { key: 'prioritas', dir: 'desc' },
-    limit: PAGE_SIZE,
+    page: 1,
     metric: 'qty',
     sub: 'armada',
     pri: { aksi: '' },
@@ -326,7 +326,7 @@
       $('anTiles').innerHTML = '';
       $('anPredTable').innerHTML = '<p class="an-updated">Belum ada data prediksi kirim.</p>';
       $('anPredCount').textContent = '';
-      $('anPredMore').hidden = true;
+      $('anPredPager').innerHTML = '';
       return;
     }
     // kotak status (dihitung dari filter selain status)
@@ -345,7 +345,10 @@
 
     // tabel
     var rows = predFiltered(false).sort(cmp);
-    var shown = rows.slice(0, state.limit);
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    if (state.page > pages) state.page = pages;
+    var start = (state.page - 1) * PAGE_SIZE;
+    var shown = rows.slice(start, start + PAGE_SIZE);
     var head = COLS.map(function (c) {
       var active = state.sort.key === c.key;
       var arrow = active ? (state.sort.dir === 'asc' ? '▲' : '▼') : '';
@@ -368,11 +371,9 @@
       ? '<table class="an-table an-cards"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>'
       : '<p class="an-updated">Tidak ada baris yang cocok dengan filter.</p>';
     $('anPredCount').textContent = rows.length
-      ? 'Menampilkan ' + fInt(shown.length) + ' dari ' + fInt(rows.length) + ' baris (SKU per gudang)'
+      ? 'Menampilkan ' + fInt(start + 1) + '–' + fInt(start + shown.length) + ' dari ' + fInt(rows.length) + ' baris (SKU per gudang)'
       : '';
-    var more = $('anPredMore');
-    more.hidden = rows.length <= shown.length;
-    more.textContent = 'Tampilkan ' + Math.min(PAGE_SIZE, rows.length - shown.length) + ' lagi';
+    renderPager('anPredPager', state.page, rows.length, PAGE_SIZE, function (p) { state.page = p; updatePrediksi(); });
   }
 
   // ---------- 3. tren bulanan ----------
@@ -661,7 +662,7 @@
       '<tbody>' + rows + '</tbody></table>';
   }
   var drTable = makeTable({
-    host: 'drTable', count: 'drCount', more: 'drMore', sortM: 'drSortM', sort: { key: 'jumlah_lama', dir: 'desc' },
+    host: 'drTable', count: 'drCount', pager: 'drPager', sortM: 'drSortM', sort: { key: 'jumlah_lama', dir: 'desc' },
     empty: 'Belum ada data ringkasan durasi.',
     rows: function () {
       if (!state.data) return [];
@@ -813,7 +814,7 @@
     return efisiensiOf(isNum(r.biaya_per_karton) && isNum(t) && t > 0 ? r.biaya_per_karton / t * 100 : null);
   }
   var bcgTable = makeTable({
-    host: 'bcgTable', count: 'bcgCount', more: 'bcgMore', sortM: 'bcgSortM', sort: { key: 'tanggal', dir: 'desc' },
+    host: 'bcgTable', count: 'bcgCount', pager: 'bcgPager', sortM: 'bcgSortM', sort: { key: 'tanggal', dir: 'desc' },
     empty: 'Tidak ada catatan yang cocok dengan filter.',
     rows: function () {
       if (!state.data || !state.bcg.bulan) return [];
@@ -1032,11 +1033,43 @@
     return parts.some(function (p) { return String(p || '').toLowerCase().indexOf(q) >= 0; });
   }
 
+  // Pagination bernomor: render 1 … 4 [5] 6 … N ke dalam <div class="an-pager">.
+  // page: halaman aktif (1-based), total: total baris, size: baris/halaman, onGo(p): pindah halaman.
+  function renderPager(host, page, total, size, onGo) {
+    var el = typeof host === 'string' ? $(host) : host;
+    if (!el) return;
+    var pages = Math.max(1, Math.ceil(total / size));
+    page = Math.min(Math.max(1, page), pages);
+    if (pages <= 1) { el.innerHTML = ''; return; }
+    function btn(p, label, disabled, on) {
+      return '<button type="button" data-pg="' + p + '"' + (disabled ? ' disabled' : '') + (on ? ' class="on"' : '') + '>' + label + '</button>';
+    }
+    var nums = [];
+    var win = 1; // halaman di sekitar current yang ditampilkan penuh
+    for (var p = 1; p <= pages; p++) {
+      if (p === 1 || p === pages || Math.abs(p - page) <= win) nums.push(p);
+    }
+    var out = btn(page - 1, '‹', page <= 1, false);
+    var prev = null;
+    nums.forEach(function (p) {
+      if (prev !== null && p - prev > 1) out += '<span class="dots">…</span>';
+      out += btn(p, String(p), false, p === page);
+      prev = p;
+    });
+    out += btn(page + 1, '›', page >= pages, false);
+    el.innerHTML = out;
+    el.onclick = function (e) {
+      var b = e.target.closest('[data-pg]');
+      if (!b || b.disabled) return;
+      onGo(Number(b.dataset.pg));
+    };
+  }
+
   // Tabel generik: urutan klik header, paginasi, pilihan urutan untuk layar sempit.
   // Kolom: { key, label, left, cls, fmt:'int'|'dec', html(r), val(r), rank(v), dir:'asc'|'desc' }
   function makeTable(o) {
     var size = o.pageSize || PAGE_SIZE;
-    var st = { sort: Object.assign({}, o.sort), limit: size };
+    var st = { sort: Object.assign({}, o.sort), page: 1 };
     var cols = o.cols;
     function colOf(k) { return cols.filter(function (c) { return c.key === k; })[0]; }
     function val(c, r) { return c.val ? c.val(r) : r[c.key]; }
@@ -1071,7 +1104,10 @@
     }
     function render() {
       var rows = o.rows().slice().sort(cmp);
-      var shown = rows.slice(0, st.limit);
+      var pages = Math.max(1, Math.ceil(rows.length / size));
+      if (st.page > pages) st.page = pages;
+      var start = (st.page - 1) * size;
+      var shown = rows.slice(start, start + size);
       var head = cols.map(function (c) {
         var active = st.sort.key === c.key;
         return '<th scope="col" class="' + (c.left ? 'l' : '') + '" aria-sort="' + (active ? (st.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none') + '">' +
@@ -1081,10 +1117,10 @@
       $(o.host).innerHTML = rows.length
         ? '<table class="an-table an-cards"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>'
         : '<p class="an-updated">' + esc(o.empty || 'Tidak ada baris yang cocok dengan filter.') + '</p>';
-      $(o.count).textContent = rows.length ? 'Menampilkan ' + fInt(shown.length) + ' dari ' + fInt(rows.length) + ' baris' : '';
-      var more = $(o.more);
-      more.hidden = rows.length <= shown.length;
-      more.textContent = 'Tampilkan ' + Math.min(size, rows.length - shown.length) + ' lagi';
+      $(o.count).textContent = rows.length
+        ? 'Menampilkan ' + fInt(start + 1) + '–' + fInt(start + shown.length) + ' dari ' + fInt(rows.length) + ' baris'
+        : '';
+      renderPager(o.pager, st.page, rows.length, size, function (p) { st.page = p; render(); });
       var sel = o.sortM && $(o.sortM) && $(o.sortM).querySelector('select');
       if (sel) sel.value = st.sort.key;
     }
@@ -1096,13 +1132,13 @@
       st.sort = st.sort.key === c.key
         ? { key: c.key, dir: st.sort.dir === 'asc' ? 'desc' : 'asc' }
         : { key: c.key, dir: c.dir || (c.left ? 'asc' : 'desc') };
+      st.page = 1;
       render();
     });
-    $(o.more).addEventListener('click', function () { st.limit += size; render(); });
     buildSortSelect();
     return {
       render: render,
-      reset: function () { st.limit = size; },
+      reset: function () { st.page = 1; },
       setCols: function (newCols, sort) { cols = newCols; if (sort) st.sort = Object.assign({}, sort); buildSortSelect(); }
     };
   }
@@ -1116,7 +1152,7 @@
 
   // ---------- stok saat ini (v_stok_terbaru) ----------
   var stokTable = makeTable({
-    host: 'stTable', count: 'stCount', more: 'stMore', sortM: 'stSortM', sort: { key: 'stok_available', dir: 'desc' },
+    host: 'stTable', count: 'stCount', pager: 'stPager', sortM: 'stSortM', sort: { key: 'stok_available', dir: 'desc' },
     rows: function () {
       var g = $('stG').value, q = $('stQ').value.trim().toLowerCase();
       return state.data.stok.filter(function (r) { return (!g || r.whs === g) && matches(q, [r.item_code, r.produk]); });
@@ -1137,7 +1173,7 @@
     if (!rows.length) {
       $('stStats').innerHTML = '';
       $('stTable').innerHTML = '<p class="an-updated">Belum ada data stok.</p>';
-      $('stCount').textContent = ''; $('stMore').hidden = true;
+      $('stCount').textContent = ''; $('stPager').innerHTML = '';
       return;
     }
     fillSelect('stG', uniq(rows.map(function (r) { return r.whs; })).sort(), 'Semua');
@@ -1158,7 +1194,7 @@
     return hit ? hit.status_prediksi : null;
   }
   var svkTable = makeTable({
-    host: 'svkTable', count: 'svkCount', more: 'svkMore', sortM: 'svkSortM', sort: { key: 'status', dir: 'asc' },
+    host: 'svkTable', count: 'svkCount', pager: 'svkPager', sortM: 'svkSortM', sort: { key: 'status', dir: 'asc' },
     rows: function () {
       var g = $('svkG').value, s2 = $('svkS').value, q = $('svkQ').value.trim().toLowerCase();
       return state.data.svk.filter(function (r) {
@@ -1188,7 +1224,7 @@
     var rows = state.data.svk;
     if (!rows.length) {
       $('svkTable').innerHTML = '<p class="an-updated">Belum ada data.</p>';
-      $('anSvkInsight').innerHTML = ''; $('svkCount').textContent = ''; $('svkMore').hidden = true;
+      $('anSvkInsight').innerHTML = ''; $('svkCount').textContent = ''; $('svkPager').innerHTML = '';
       return;
     }
     fillSelect('svkG', uniq(rows.map(function (r) { return r.whs; })).sort(), 'Semua');
@@ -1211,7 +1247,7 @@
     return total;
   }
   var pelTable = makeTable({
-    host: 'plTable', count: 'plCount', more: 'plMore', sortM: 'plSortM', sort: { key: 'kunci', dir: 'asc' },
+    host: 'plTable', count: 'plCount', pager: 'plPager', sortM: 'plSortM', sort: { key: 'kunci', dir: 'asc' },
     rows: function () {
       var q = $('plQ').value.trim().toLowerCase();
       return statePel.filter(function (r) { return matches(q, [r.kunci]); });
@@ -1224,7 +1260,7 @@
     if (!state.data.trenPel.length || !months.length) {
       statePel = [];
       $('plTable').innerHTML = '<p class="an-updated">Belum ada data tren pelanggan.</p>';
-      $('plCount').textContent = ''; $('plMore').hidden = true;
+      $('plCount').textContent = ''; $('plPager').innerHTML = '';
       return;
     }
     var by = {};
@@ -1380,7 +1416,7 @@
 
   // ---------- rekap harian (v_harian) ----------
   var harianTable = makeTable({
-    host: 'hrTable', count: 'hrCount', more: 'hrMore', sortM: 'hrSortM', sort: { key: 'tanggal', dir: 'desc' },
+    host: 'hrTable', count: 'hrCount', pager: 'hrPager', sortM: 'hrSortM', sort: { key: 'tanggal', dir: 'desc' },
     rows: function () {
       var onlyTrip = $('hrTrip').checked;
       return state.data.harian.filter(function (r) { return !onlyTrip || isNum(r.trip); });
@@ -1427,7 +1463,7 @@
     if (!all.length) {
       $('hrStats').innerHTML = ''; $('hrChart').innerHTML = '';
       $('hrTable').innerHTML = '<p class="an-updated">Belum ada data harian.</p>';
-      $('hrCount').textContent = ''; $('hrMore').hidden = true;
+      $('hrCount').textContent = ''; $('hrPager').innerHTML = '';
       return;
     }
     var withM3 = all.filter(function (r) { return isNum(r.m3); });
@@ -1532,7 +1568,7 @@
 
   // ---------- baris pengiriman terbesar (v_shipments) ----------
   var ktTable = makeTable({
-    host: 'ktTable', count: 'ktCount', more: 'ktMore', sortM: 'ktSortM', sort: { key: 'm3', dir: 'desc' },
+    host: 'ktTable', count: 'ktCount', pager: 'ktPager', sortM: 'ktSortM', sort: { key: 'm3', dir: 'desc' },
     rows: function () {
       var q = $('ktQ').value.trim().toLowerCase();
       return state.data.kt.filter(function (r) { return matches(q, [r.nama_produk, r.kode_sku, r.pelanggan, r.kota_tujuan, r.provinsi, r.nama_ekspedisi]); });
@@ -1606,7 +1642,7 @@
     return '<span class="' + (v > 5 ? 'up' : v < -5 ? 'down' : 'flat') + '">' + pctText(v, true) + '</span>';
   }
   var akSkuTable = makeTable({
-    host: 'akSkuTable', count: 'akSkuCount', more: 'akSkuMore', sortM: 'akSkuSortM', pageSize: 15, sort: { key: 'aktual_per_hari', dir: 'desc' },
+    host: 'akSkuTable', count: 'akSkuCount', pager: 'akSkuPager', sortM: 'akSkuSortM', sort: { key: 'aktual_per_hari', dir: 'desc' },
     rows: function () { return state.data.akurasi.filter(function (r) { return r.dimensi === 'SKU'; }); },
     cols: [
       { key: 'gudang', label: 'Gudang', left: true },
@@ -1633,7 +1669,7 @@
     if (!tot || !anc.length) {
       $('akStats').innerHTML = ''; $('anAkInsight').innerHTML = '';
       $('akTable').innerHTML = '<p class="an-updated">Belum cukup riwayat untuk uji mundur.</p>';
-      $('akSkuTable').innerHTML = ''; $('akSkuCount').textContent = ''; $('akSkuMore').hidden = true;
+      $('akSkuTable').innerHTML = ''; $('akSkuCount').textContent = ''; $('akSkuPager').innerHTML = '';
       return;
     }
     var last3 = anc.slice(-3);
@@ -1706,7 +1742,7 @@
     });
   }
   var priTable = makeTable({
-    host: 'priTable', count: 'priCount', more: 'priMore', sortM: 'priSortM', sort: { key: 'urutan', dir: 'asc' },
+    host: 'priTable', count: 'priCount', pager: 'priPager', sortM: 'priSortM', sort: { key: 'urutan', dir: 'asc' },
     rows: function () { return priFiltered(false); },
     cols: [
       { key: 'urutan', label: '#', fmt: 'int', dir: 'asc' },
@@ -1737,7 +1773,7 @@
     if (!rows.length) {
       $('priTiles').innerHTML = '';
       $('priTable').innerHTML = '<p class="an-updated">Belum ada data prioritas.</p>';
-      $('priCount').textContent = ''; $('priMore').hidden = true;
+      $('priCount').textContent = ''; $('priPager').innerHTML = '';
       return;
     }
     fillSelect('priG', uniq(rows.map(function (r) { return r.gudang; })).sort(), 'Semua');
@@ -1747,7 +1783,7 @@
 
   // ---------- Pareto (v_pareto) ----------
   var parTable = makeTable({
-    host: 'parTable', count: 'parCount', more: 'parMore', sortM: 'parSortM', pageSize: 20, sort: { key: 'peringkat', dir: 'asc' },
+    host: 'parTable', count: 'parCount', pager: 'parPager', sortM: 'parSortM', sort: { key: 'peringkat', dir: 'asc' },
     rows: function () { return state.data.pareto.filter(function (r) { return r.dimensi === state.par; }); },
     cols: [
       { key: 'peringkat', label: '#', fmt: 'int', dir: 'asc' },
@@ -1767,7 +1803,7 @@
     if (!rows.length) {
       $('parStats').innerHTML = '';
       $('parTable').innerHTML = '<p class="an-updated">Belum ada data Pareto.</p>';
-      $('parCount').textContent = ''; $('parMore').hidden = true;
+      $('parCount').textContent = ''; $('parPager').innerHTML = '';
       return;
     }
     var unit = state.par === 'SKU' ? 'SKU' : 'pelanggan';
@@ -1945,12 +1981,12 @@
     var b = e.target.closest('[data-status]');
     if (!b) return;
     state.pf.status = state.pf.status === b.dataset.status ? '' : b.dataset.status;
-    state.limit = PAGE_SIZE;
+    state.page = 1;
     updatePrediksi();
   });
-  $('anFGudang').addEventListener('change', function (e) { state.pf.gudang = e.target.value; state.limit = PAGE_SIZE; updatePrediksi(); });
-  $('anFTren').addEventListener('change', function (e) { state.pf.tren = e.target.value; state.limit = PAGE_SIZE; updatePrediksi(); });
-  $('anFQ').addEventListener('input', function (e) { state.pf.q = e.target.value; state.limit = PAGE_SIZE; updatePrediksi(); });
+  $('anFGudang').addEventListener('change', function (e) { state.pf.gudang = e.target.value; state.page = 1; updatePrediksi(); });
+  $('anFTren').addEventListener('change', function (e) { state.pf.tren = e.target.value; state.page = 1; updatePrediksi(); });
+  $('anFQ').addEventListener('input', function (e) { state.pf.q = e.target.value; state.page = 1; updatePrediksi(); });
   $('anPredTable').addEventListener('click', function (e) {
     var b = e.target.closest('[data-sort]');
     if (!b) return;
@@ -1961,10 +1997,12 @@
       var col = COLS.filter(function (c) { return c.key === key; })[0] || {};
       state.sort = { key: key, dir: col.str || col.status ? 'asc' : 'desc' };
     }
+    state.page = 1;
     updatePrediksi();
   });
   $('anFSort').addEventListener('change', function (e) {
     state.sort = Object.assign({}, SORTS[e.target.value] || SORTS.prioritas);
+    state.page = 1;
     updatePrediksi();
   });
   var resizeTimer = null;
@@ -1976,7 +2014,6 @@
       if (state.data && !$('page-analisis').hidden && state.sub === 'durasi') { renderDurasi(); }
     }, 150);
   });
-  $('anPredMore').addEventListener('click', function () { state.limit += PAGE_SIZE; updatePrediksi(); });
   $('anMetricSeg').addEventListener('click', function (e) {
     var b = e.target.closest('[data-metric]');
     if (!b) return;
