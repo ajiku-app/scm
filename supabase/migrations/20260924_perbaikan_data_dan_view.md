@@ -13,3 +13,20 @@
 6. `ekspedisi_lokal_dan_muatan_per_trip` — tabel `ekspedisi_lokal` (Serena Indopangan = pengiriman lokal, tidak ada di logistics);
    `v_harian.m3_per_trip` / `kg_per_trip` kini memakai volume via ekspedisi saja (37,2 m³ & 9.005 kg per trip, sebelumnya 45,5 m³ & 11.066 kg).
    Kolom baru: `qty_ekspedisi`, `m3_ekspedisi`, `kg_ekspedisi`. `v_kebutuhan_kendaraan_hari_ini` belum diubah.
+7. `rls_dedupe_policies_and_initplan` — hapus policy RLS duplikat (logistics, profiles, fg_face_enrollment) dan
+   bungkus `auth.uid()`/`auth.jwt()` dengan `(select ...)` di semua policy publik agar dievaluasi sekali per query
+   (perf advisor: initplan), bukan per baris.
+8. `harden_functions_and_add_fk_index` — cabut `execute` publik dari fungsi trigger
+   (`prevent_role_self_escalation`, `reject_anonymous_signup`), kunci `search_path` beberapa fungsi,
+   tambah index FK `fg_stock_uploads.uploaded_by`, cabut akses tabel backup `logistics_tgl_backup_20260924` dari anon/authenticated.
+9. `grant_read_biaya_karton_views` — beri akses `select` ke `authenticated` untuk `target_biaya_karton` dan view
+   `v_biaya_per_karton`, `v_biaya_per_karton_harian`, `v_biaya_per_karton_ringkas` (semua `security_invoker`).
+10. `drop_logistics_tgl_backup_20260924` — hapus tabel cadangan setelah perbaikan tanggal di #1 diverifikasi aman.
+11. `fg_stock_replace_same_day_upload` — trigger baru: upload stok FG baru pada tanggal yang sama otomatis
+    menggantikan (hapus) upload sebelumnya di tanggal tersebut, supaya tidak dobel.
+12. **`logistics_kpi_server_side`** — view `v_logistics_trip` (durasi loading per trip dari `time_in`/`time_out`,
+    dengan flag `durasi_valid` untuk membuang anomali) dan fungsi RPC `get_logistics_kpi(p_from, p_to, p_sla_menit)`
+    yang menghitung KPI (SLA %, rata-rata/median/p90 durasi, breakdown per armada, volume per kendaraan, dll)
+    langsung di server — menghindari limit 1000 baris PostgREST. **Frontend belum memakai RPC ini** — perlu
+    ditambahkan hook baru (mis. `hooks/fetch/useLogisticsKpi.ts`) yang memanggil
+    `supabase.rpc('get_logistics_kpi', { p_from, p_to, p_sla_menit })`.
