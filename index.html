@@ -626,6 +626,14 @@
         <div class="an-chart" id="drChart"></div>
       </section>
 
+      <section class="an-card" id="drKpiCard" aria-labelledby="anDrKpiTitle" hidden>
+        <h3 id="anDrKpiTitle">SLA &amp; KPI server-side <span class="an-sub" style="font-weight:400">(baru)</span></h3>
+        <p class="an-sub">Dihitung langsung di database lewat fungsi <code>get_logistics_kpi</code> (tidak kena limit 1000 baris), jadi lebih lengkap dari kartu di atas: ada persentase SLA, median/p90 keseluruhan, jumlah trip yang datanya anomali, dan breakdown per armada.</p>
+        <div class="an-stats" id="drKpiStats"></div>
+        <div class="an-note" id="drKpiNote" role="status" hidden></div>
+        <div class="an-table-wrap" id="drKpiArmada" style="margin-top:12px"></div>
+      </section>
+
       <section class="an-card" aria-labelledby="anDrTblTitle">
         <h3 id="anDrTblTitle">Ekspedisi dan armada yang paling sering lama</h3>
         <p class="an-sub">Ringkasan seluruh data. Diurutkan menurut jumlah trip Lama (bukan persentase) supaya yang hanya punya satu dua trip tidak menutupi yang volumenya besar; lihat kolom Trip untuk menilai apakah datanya cukup.</p>

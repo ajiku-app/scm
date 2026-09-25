@@ -172,6 +172,7 @@
       biaya: clean(conv(d.biaya_carton, NUM.biaya), ['bulan'], 'Biaya per karton bulanan', report),
       durHarian: clean(conv(d.durasi_harian, NUM.durHarian), ['tanggal'], 'Durasi truk harian', report),
       durRingkas: clean(conv(d.durasi_ringkas, NUM.durRingkas), ['kunci', 'dimensi'], 'Durasi truk ringkas', report),
+      kpiLogistics: d.kpi_logistics || null,
       biayaGd: clean(conv(d.biaya_harian_gudang, NUM.biayaGd), ['tanggal', 'gudang'], 'Biaya tenaga per gudang harian', report),
       estimasi: conv(Array.isArray(d.estimasi_budget) ? d.estimasi_budget : (d.estimasi_budget ? [d.estimasi_budget] : []), NUM.estimasi)[0] || null
     };
@@ -605,6 +606,48 @@
     $('drChart').innerHTML = durChartSvg(recent, avg) +
       '<p class="an-updated" style="margin-top:4px">Batang: rata-rata durasi truk per hari (merah bila lebih dari 25% di atas rata-rata seluruh data).</p>';
     drTable.reset(); drTable.render();
+    renderKpiLogistics();
+  }
+
+  // ---------- 3c-bis. SLA & KPI server-side (RPC get_logistics_kpi, baru) ----------
+  // Dihitung langsung di database (bukan diagregasi di browser dari v_durasi_harian/
+  // v_durasi_ringkas seperti di atas), jadi tidak kena limit 1000 baris PostgREST dan
+  // sekalian menambah metrik yang belum ada: SLA %, median/p90 keseluruhan, jumlah trip
+  // dianggap anomali (format jam salah / jam keluar < jam masuk), dan breakdown per armada.
+  function renderKpiLogistics() {
+    var host = $('drKpiCard');
+    if (!host) return; // index.html belum di-update, jangan error
+    var k = state.data.kpiLogistics;
+    if (!k || !isNum(k.total_trip) || k.total_trip === 0) {
+      host.hidden = true;
+      return;
+    }
+    host.hidden = false;
+    $('drKpiStats').innerHTML =
+      statHtml(isNum(k.sla_pct) ? fDec(k.sla_pct) + '%' : '—', 'SLA tepat waktu', 'target ≤ ' + fInt(k.sla_target_menit) + ' menit di lokasi') +
+      statHtml(fMenit(k.median_menit), 'Median durasi', 'p90: ' + fMenit(k.p90_menit)) +
+      statHtml(fInt(k.trip_anomali), 'Trip anomali', 'dari ' + fInt(k.total_trip) + ' total trip · jam masuk/keluar tidak valid') +
+      statHtml(isNum(k.kendaraan_bervolume) ? fInt(k.kendaraan_bervolume) : '—', 'Kendaraan bervolume', isNum(k.volume_per_kendaraan_m3) ? 'rata-rata ' + fDec(k.volume_per_kendaraan_m3) + ' m³/kendaraan' : 'volume per kendaraan belum ada');
+    var terlama = k.loading_terlama;
+    showNote('drKpiNote', terlama
+      ? 'Trip loading terlama tercatat: <b>' + esc(fMenit(terlama.durasi_menit)) + '</b> — ' + esc(terlama.driver || '-') + ', ' + esc(terlama.ekspedisi || '-') +
+        (terlama.provinsi ? ' (' + esc(terlama.provinsi) + (terlama.kota ? ', ' + esc(terlama.kota) : '') + ')' : '') + ', ' + esc(fDate(terlama.tgl)) + '.'
+      : '');
+    var perArmada = Array.isArray(k.per_armada) ? k.per_armada : [];
+    if (!perArmada.length) {
+      $('drKpiArmada').innerHTML = '<p class="an-updated">Belum ada breakdown per armada.</p>';
+      return;
+    }
+    var rows = perArmada.slice().sort(function (a, b) { return (b.trip || 0) - (a.trip || 0); }).map(function (r) {
+      return '<tr><td class="l" data-label="Armada">' + esc(r.armada) + '</td>' +
+        '<td data-label="Trip">' + fInt(r.trip) + '</td>' +
+        '<td data-label="SLA %">' + (isNum(r.sla_pct) ? fDec(r.sla_pct) + '%' : '—') + '</td>' +
+        '<td data-label="Rata-rata">' + fMenit(r.avg_menit) + '</td>' +
+        '<td data-label="Median">' + fMenit(r.median_menit) + '</td></tr>';
+    }).join('');
+    $('drKpiArmada').innerHTML = '<table class="an-table an-cards"><thead><tr>' +
+      '<th class="l">Armada</th><th>Trip</th><th>SLA %</th><th>Rata-rata</th><th>Median</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table>';
   }
   var drTable = makeTable({
     host: 'drTable', count: 'drCount', more: 'drMore', sortM: 'drSortM', sort: { key: 'jumlah_lama', dir: 'desc' },
