@@ -8,6 +8,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  /* Tab Peta: badge marker kustom + legend. Warna dipilih agar kontras di
+     atas basemap CARTO dark_all; sesuaikan ke design token proyek kalau ada. */
+  .ppb-icon-wrap { background: transparent; border: none; }
+  .ppb-badge { border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0b1220; font-weight: 700; font-family: inherit; position: relative; }
+  .ppb-flag { position: absolute; top: -3px; right: -3px; width: 14px; height: 14px; border-radius: 50%; background: #1b2436; border: 2px solid #fff; }
+  #anPetaMap { background: #1a1f2b; }
+  .an-legend { display: flex; gap: 16px; align-items: center; padding: 10px 2px; font-size: 12px; color: #8b93a7; flex-wrap: wrap; }
+  .an-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -363,6 +374,7 @@
           <button type="button" data-sub="durasi" aria-pressed="false">Durasi truk</button>
           <button type="button" data-sub="biaya" aria-pressed="false">Biaya</button>
           <button type="button" data-sub="master" aria-pressed="false">Data master</button>
+          <button type="button" data-sub="peta" aria-pressed="false">Peta</button>
         </div>
       </div>
 
@@ -656,6 +668,22 @@
       </section>
 
       </div>
+
+      <div data-panel="peta" hidden>
+      <section class="an-card" aria-labelledby="anPetaTitle">
+        <h3 id="anPetaTitle">Sebaran pelanggan</h3>
+        <p class="an-sub">Agregasi pelanggan per provinsi tujuan kirim; wilayah "LUAR NEGERI" dipecah per negara. Ukuran dan warna badge mengikuti total volume (karton) terkirim.</p>
+        <div class="an-toolbar"><div class="an-seg" id="petSeg" role="group" aria-label="Filter wilayah">
+          <button type="button" data-tipe="semua" aria-pressed="true">Semua</button>
+          <button type="button" data-tipe="provinsi" aria-pressed="false">Domestik</button>
+          <button type="button" data-tipe="negara" aria-pressed="false">Luar negeri</button>
+        </div></div>
+        <div class="an-stats" id="anPetaStats"></div>
+        <div id="anPetaMap" style="height:560px;border-radius:12px;overflow:hidden;"></div>
+        <div class="an-legend" id="anPetaLegend"></div>
+      </section>
+      </div>
+
     </div>
   </div><!-- /#page-analisis -->
 
@@ -753,6 +781,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/assets/supabase-client.js"></script>
 <script src="/assets/auth-guard.js"></script>
 <script src="/app.js"></script>

@@ -14,6 +14,14 @@
   var ENDPOINT = '/api/analisis';
   var STALE_MS = 5 * 60 * 1000;
   var PAGE_SIZE = 25;
+
+  // ---------- Peta sebaran pelanggan (CARTO basemap + Leaflet) ----------
+  // Basemaps API key CARTO — publik seperti token peta lain (Mapbox dsb.),
+  // aman dipakai di client. Docs: https://carto.com/basemaps/apikey/
+  var CARTO_API_KEY = 'cb1_30gl_1_2f654137b45a97f4e5b76e6d';
+  var CARTO_TILE_URL = 'https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?api_key=' + CARTO_API_KEY;
+  var CARTO_ATTRIBUTION = '&copy; <a href="https://carto.com/attribution">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  var petaMap = null, petaLayer = null;
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
   // ---------- helper ----------
@@ -63,7 +71,8 @@
     par: 'SKU',
     puncak: 'BWB',
     dr: { dim: 'EKSPEDISI' },
-    bcg: { bulan: '', gudang: '' }
+    bcg: { bulan: '', gudang: '' },
+    pet: { tipe: 'semua' }
   };
 
   var STATUS = [
@@ -122,7 +131,8 @@
     durRingkas: ['jumlah_trip', 'rata2_durasi_menit', 'p90_durasi_menit', 'jumlah_lama', 'pct_lama'],
     biayaGd: ['jumlah_pekerja', 'biaya_per_pekerja', 'qty_dimuat', 'jam_kerja', 'total_biaya', 'biaya_per_karton'],
     estimasi: ['proyeksi_qty_22hari', 'rata2_biaya_per_carton', 'min_biaya_per_carton', 'max_biaya_per_carton', 'jumlah_bulan_acuan',
-      'proyeksi_biaya_rp', 'proyeksi_biaya_rp_terendah', 'proyeksi_biaya_rp_tertinggi', 'target_biaya_per_carton_saat_ini', 'budget_ideal_rp']
+      'proyeksi_biaya_rp', 'proyeksi_biaya_rp_terendah', 'proyeksi_biaya_rp_tertinggi', 'target_biaya_per_carton_saat_ini', 'budget_ideal_rp'],
+    peta: ['lat', 'lng', 'jml_pelanggan', 'jml_kota', 'total_qty', 'total_m3', 'total_kg', 'hari_sejak_kirim']
   };
   function conv(rows, keys) {
     return (Array.isArray(rows) ? rows : []).map(function (r) {
@@ -174,7 +184,8 @@
       durRingkas: clean(conv(d.durasi_ringkas, NUM.durRingkas), ['kunci', 'dimensi'], 'Durasi truk ringkas', report),
       kpiLogistics: d.kpi_logistics || null,
       biayaGd: clean(conv(d.biaya_harian_gudang, NUM.biayaGd), ['tanggal', 'gudang'], 'Biaya tenaga per gudang harian', report),
-      estimasi: conv(Array.isArray(d.estimasi_budget) ? d.estimasi_budget : (d.estimasi_budget ? [d.estimasi_budget] : []), NUM.estimasi)[0] || null
+      estimasi: conv(Array.isArray(d.estimasi_budget) ? d.estimasi_budget : (d.estimasi_budget ? [d.estimasi_budget] : []), NUM.estimasi)[0] || null,
+      peta: clean(conv(d.peta_pelanggan, NUM.peta), ['wilayah_key', 'lat', 'lng'], 'Sebaran pelanggan', report)
     };
     // Baris yang dibuang tidak hilang diam-diam — muncul sebagai peringatan
     // INFO di panel "Peringatan data" yang sudah ada, supaya kelihatan kalau
@@ -1245,6 +1256,91 @@
     pelTable.render();
   }
 
+  // ---------- peta sebaran pelanggan ----------
+  var PET_BUCKETS = [
+    { min: 100000, color: '#e05252', ring: '#ffb3b3', label: 'Volume besar' },
+    { min: 20000, color: '#e0a33e', ring: '#ffe1a6', label: 'Volume menengah' },
+    { min: 0, color: '#3fc38a', ring: '#b8f0d6', label: 'Volume kecil' }
+  ];
+  function petBucket(qty) {
+    for (var i = 0; i < PET_BUCKETS.length; i++) if (qty >= PET_BUCKETS[i].min) return PET_BUCKETS[i];
+    return PET_BUCKETS[PET_BUCKETS.length - 1];
+  }
+  function petRows() {
+    var all = state.data.peta, t = state.pet.tipe;
+    return t === 'semua' ? all : all.filter(function (r) { return r.tipe === t; });
+  }
+  function petCompact(n) {
+    if (!isNum(n)) return '-';
+    if (n >= 1000000) return nf1.format(n / 1000000) + 'jt';
+    if (n >= 1000) return nf1.format(n / 1000) + 'rb';
+    return fInt(n);
+  }
+  function petBadgeIcon(row, maxQty) {
+    var qty = row.total_qty || 0;
+    var b = petBucket(qty);
+    var min = 30, max = 58;
+    var size = maxQty ? Math.round(min + (Math.sqrt(qty) / Math.sqrt(maxQty)) * (max - min)) : min;
+    var fontSize = Math.max(10, Math.round(size * 0.32));
+    var html = '<div class="ppb-badge" style="width:' + size + 'px;height:' + size + 'px;background:' + b.color +
+      ';box-shadow:0 0 0 4px ' + b.ring + '55, 0 2px 6px rgba(0,0,0,.45);">' +
+      '<span style="font-size:' + fontSize + 'px;">' + esc(petCompact(row.jml_pelanggan)) + '</span>' +
+      (row.tipe === 'negara' ? '<i class="ppb-flag" title="Luar negeri"></i>' : '') + '</div>';
+    return L.divIcon({ html: html, className: 'ppb-icon-wrap', iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+  }
+  function petPopupHtml(r) {
+    return '<div style="min-width:190px;font-family:inherit;">' +
+      '<strong>' + esc(r.label) + '</strong>' +
+      '<div style="font-size:12px;color:#666;margin-bottom:6px;">' + (r.tipe === 'negara' ? 'Luar negeri' : 'Domestik') + '</div>' +
+      '<table style="font-size:13px;width:100%;">' +
+      '<tr><td>Pelanggan</td><td style="text-align:right;">' + fInt(r.jml_pelanggan) + '</td></tr>' +
+      '<tr><td>Kota tujuan</td><td style="text-align:right;">' + fInt(r.jml_kota) + '</td></tr>' +
+      '<tr><td>Total karton</td><td style="text-align:right;">' + fInt(r.total_qty) + '</td></tr>' +
+      '<tr><td>Total m³</td><td style="text-align:right;">' + fDec(r.total_m3) + '</td></tr>' +
+      '<tr><td>Total kg</td><td style="text-align:right;">' + fInt(r.total_kg) + '</td></tr>' +
+      '<tr><td>Kirim terakhir</td><td style="text-align:right;">' + fDate(r.kirim_terakhir) + '</td></tr>' +
+      '</table></div>';
+  }
+  // Stats + legend + filter-button state: aman dipanggil kapan pun (tidak
+  // menyentuh Leaflet), jadi ikut dipanggil dari render() seperti tab lain.
+  function renderPeta() {
+    Array.prototype.forEach.call($('petSeg').querySelectorAll('[data-tipe]'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.tipe === state.pet.tipe));
+    });
+    var rows = petRows();
+    var pelanggan = 0, qty = 0;
+    rows.forEach(function (r) { pelanggan += r.jml_pelanggan || 0; qty += r.total_qty || 0; });
+    function stat(v, l) { return '<div class="an-stat"><div class="v">' + v + '</div><div class="l">' + l + '</div></div>'; }
+    $('anPetaStats').innerHTML = !state.data.peta.length ? '' :
+      stat(fInt(rows.length), 'wilayah aktif') + stat(fInt(pelanggan), 'pelanggan (unik per wilayah)') + stat(fInt(qty), 'total karton terkirim');
+    $('anPetaLegend').innerHTML = !state.data.peta.length ? '' :
+      PET_BUCKETS.slice().reverse().map(function (b) { return '<span><i class="dot" style="background:' + b.color + '"></i>' + b.label + '</span>'; }).join('') +
+      '<span><i class="dot" style="background:#1b2436;border:2px solid #fff"></i>Penanda luar negeri</span>' +
+      '<span style="margin-left:auto;font-style:italic;">Angka pada badge = jumlah pelanggan unik</span>';
+  }
+  // Leaflet butuh container yang sudah terlihat (ukuran > 0) saat dibuat,
+  // jadi map di-init secara lazy pas panel "peta" pertama kali dibuka
+  // (dipanggil dari showSub), bukan dari render() yang bisa terjadi saat
+  // panel masih hidden. Panggilan berikutnya tinggal update marker +
+  // invalidateSize (perlu tiap kali panel disembunyikan lalu ditampilkan
+  // lagi, karena ukuran container bisa berubah).
+  function renderPetaMap() {
+    if (!state.data || !state.data.peta.length) return;
+    var host = $('anPetaMap');
+    if (!petaMap) {
+      petaMap = L.map(host, { center: [-2.5, 118], zoom: 5, scrollWheelZoom: true });
+      L.tileLayer(CARTO_TILE_URL, { attribution: CARTO_ATTRIBUTION, maxZoom: 19 }).addTo(petaMap);
+      petaLayer = L.layerGroup().addTo(petaMap);
+    }
+    petaLayer.clearLayers();
+    var rows = petRows();
+    var maxQty = rows.reduce(function (m, r) { return Math.max(m, r.total_qty || 0); }, 0);
+    rows.forEach(function (r) {
+      L.marker([r.lat, r.lng], { icon: petBadgeIcon(r, maxQty) }).bindPopup(petPopupHtml(r)).addTo(petaLayer);
+    });
+    setTimeout(function () { petaMap.invalidateSize(); }, 0);
+  }
+
   // ---------- rekap harian (v_harian) ----------
   var harianTable = makeTable({
     host: 'hrTable', count: 'hrCount', more: 'hrMore', sortM: 'hrSortM', sort: { key: 'tanggal', dir: 'desc' },
@@ -1664,6 +1760,7 @@
     if (state.data && key === 'tren') { renderTren(); renderHarianChart(); }
     if (state.data && key === 'biaya') { renderBiaya(); renderEvaluasiTarget(); renderBiayaGudang(); renderProyeksi(); }
     if (state.data && key === 'durasi') { renderDurasi(); }
+    if (state.data && key === 'peta') { renderPeta(); renderPetaMap(); }
   }
 
   // ---------- render & muat data ----------
@@ -1689,6 +1786,7 @@
     renderEvaluasiTarget();
     renderBiayaGudang();
     renderProyeksi();
+    renderPeta();
     showSub(state.sub);
   }
   function setPill(kind) {
@@ -1852,6 +1950,13 @@
   $('anSubSeg').addEventListener('click', function (e) {
     var b = e.target.closest('[data-sub]');
     if (b) showSub(b.dataset.sub);
+  });
+  $('petSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tipe]');
+    if (!b) return;
+    state.pet.tipe = b.dataset.tipe;
+    renderPeta();
+    renderPetaMap();
   });
   bindFilters(['stG', 'stQ'], stokTable);
   bindFilters(['svkG', 'svkS', 'svkQ'], svkTable);
