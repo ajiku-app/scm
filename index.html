@@ -109,10 +109,6 @@
       </div>
       <button class="btn-primary" data-action="save-apply">Simpan &amp; Segarkan</button>
     </div>
-    <details class="contract-details">
-      <summary>Lihat kontrak data JSON yang diharapkan per zona</summary>
-      <pre id="contractPre"></pre>
-    </details>
   </div>
 
   <div class="health">
@@ -170,11 +166,6 @@
           <div class="l">Total Stok Hari Ini (unit)</div>
           <div class="s" id="kpi-stock-totalsub">▼2,6% vs hari sebelumnya</div>
         </div>
-        <div class="kpi" data-kpi-modal="stock-volume">
-          <div class="v neutral" id="kpi-stock-volume">0 L</div>
-          <div class="l">Volume Stok</div>
-          <div class="s" id="kpi-stock-volumesub">berdasarkan volume master produk</div>
-        </div>
       </div>
       <p class="zone-insight" id="insight-stock"><b>Insight:</b> Kapasitas gudang mendekati penuh dan akurasi forecast sangat rendah — dua sinyal ini bersama berisiko memperbesar kelebihan/kekurangan stok kelas A.</p>
       <a class="zone-link" href="https://stok-monitoring.vercel.app/" target="_blank" rel="noopener">Buka Stock Monitoring FG →</a>
@@ -209,16 +200,6 @@
           <div class="l">Loading Terlama</div>
           <div class="s">Supriatna → Korea</div>
         </div>
-        <div class="kpi" data-kpi-modal="log-wait">
-          <div class="v neutral" id="kpi-log-wait">27m</div>
-          <div class="l">Rata-rata Waktu Tunggu Driver</div>
-          <div class="s" id="kpi-log-waitsub">sebelum proses loading dimulai</div>
-        </div>
-        <div class="kpi" data-kpi-modal="log-volveh">
-          <div class="v neutral" id="kpi-log-volveh">3,85 m³</div>
-          <div class="l">Rata-rata Volume Muat / Kendaraan</div>
-          <div class="s" id="kpi-log-volvehsub">volume produk ÷ jumlah armada</div>
-        </div>
       </div>
       <p class="zone-insight" id="insight-logistics"><b>Insight:</b> 51 dari 98 pengiriman (52%) lewat SLA. Rute Medan &amp; ekspedisi Sarana Trans Sumatera mendominasi — kandidat kuat untuk kontrak armada tetap.</p>
       <a class="zone-link" href="https://logistik-monitoring.vercel.app/" target="_blank" rel="noopener">Buka Logistics Monitoring →</a>
@@ -238,16 +219,6 @@
           <div class="l">Kepatuhan FEFO</div>
           <div class="s">Seluruh gudang</div>
         </div>
-        <div class="kpi" data-kpi-modal="fefo-dead">
-          <div class="v good" id="kpi-fefo-dead">0%</div>
-          <div class="l">Dead Stock / Near-Expired</div>
-          <div class="s">Risiko kedaluwarsa</div>
-        </div>
-        <div class="kpi" data-kpi-modal="fefo-trace">
-          <div class="v good" id="kpi-fefo-trace">100%</div>
-          <div class="l">Batch Traceability</div>
-          <div class="s">Qty tercatat kode batch</div>
-        </div>
         <div class="kpi" data-kpi-modal="fefo-qty">
           <div class="v neutral" id="kpi-fefo-qty">3,55 jt ctn</div>
           <div class="l">Total Kuantitas Terkirim</div>
@@ -257,11 +228,6 @@
           <div class="v neutral" id="kpi-fefo-volume">0 L</div>
           <div class="l">Volume Barang Terkirim</div>
           <div class="s" id="kpi-fefo-volumesub">berdasarkan volume master produk</div>
-        </div>
-        <div class="kpi" data-kpi-modal="fefo-today-volume">
-          <div class="v neutral" id="kpi-fefo-todayvolume">0 m³</div>
-          <div class="l">Volume Pengiriman Hari Ini</div>
-          <div class="s" id="kpi-fefo-todayvolumesub">vs rata-rata harian</div>
         </div>
         <div class="kpi" data-kpi-modal="fefo-growth">
           <div class="v neutral" id="kpi-fefo-growth">▲0%</div>
@@ -291,26 +257,6 @@
           <div class="v neutral" id="kpi-wh-crew">9,0</div>
           <div class="l">Rata-rata Tenaga / Pengiriman</div>
           <div class="s" id="kpi-wh-crewsub">picker + muat + stuffing</div>
-        </div>
-        <div class="kpi" data-kpi-modal="wh-picker">
-          <div class="v neutral" id="kpi-wh-picker">3,2</div>
-          <div class="l">Rata-rata Tim Picker / Pengiriman</div>
-          <div class="s" id="kpi-wh-pickersub">orang per pengiriman</div>
-        </div>
-        <div class="kpi" data-kpi-modal="wh-muat">
-          <div class="v neutral" id="kpi-wh-muat">2,8</div>
-          <div class="l">Rata-rata Tim Muat / Pengiriman</div>
-          <div class="s" id="kpi-wh-muatsub">orang per pengiriman</div>
-        </div>
-        <div class="kpi" data-kpi-modal="wh-stuffing">
-          <div class="v neutral" id="kpi-wh-stuffing">3,0</div>
-          <div class="l">Rata-rata Tim Stuffing / Pengiriman</div>
-          <div class="s" id="kpi-wh-stuffingsub">orang per pengiriman</div>
-        </div>
-        <div class="kpi" data-kpi-modal="wh-match">
-          <div class="v warn" id="kpi-wh-match">74,5%</div>
-          <div class="l">Cakupan Pengenalan Nama Petugas</div>
-          <div class="s" id="kpi-wh-matchsub">dari 31 karyawan terdaftar</div>
         </div>
         <div class="kpi" data-kpi-modal="wh-top">
           <div class="v neutral" id="kpi-wh-top">142</div>

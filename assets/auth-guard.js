@@ -104,7 +104,7 @@
         sessionStorage.removeItem('scm_face_ok');
         await sb.auth.signOut();
       } catch (e) { /* tetap lanjut redirect walau signOut gagal */ }
-      window.location.replace('/login.html?reason=idle');
+      window.location.replace('/login.html');
     }
 
     function checkIdle() {

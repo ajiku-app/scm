@@ -94,17 +94,6 @@ const KPI_CONFIGS = {
       return `Total stok hari ini ${fmtInt(d.total_stock_unit)} unit, ${arah} ${fmtPct(Math.abs(d.stock_change_pct))}% dibanding hari sebelumnya. Pergerakan ini wajar dipantau bersama akurasi forecast dan utilisasi kapasitas agar tren stok tidak menumpuk di satu arah secara berkelanjutan.`;
     }
   },
-  'stock-volume': {
-    title:'Volume Stok Terpakai', zone:'Stock Monitoring FG', zoneKey:'stock',
-    value:d=>d.total_volume_stok_l, fmt:v=>fmtM3(v), status:()=>'neutral',
-    rows:d=>[['SKU dengan Data Volume', fmtInt(d.sku_dengan_volume)+' / '+fmtInt(d.total_sku)],['Total Volume', fmtM3(d.total_volume_stok_l)]],
-    analysis:(d)=>{
-      const cakupan = d.total_sku ? (d.sku_dengan_volume/d.total_sku*100) : 0;
-      let t = `Total volume fisik stok yang tersimpan saat ini sekitar ${fmtM3(d.total_volume_stok_l)}, dihitung dari ${fmtInt(d.sku_dengan_volume)} dari ${fmtInt(d.total_sku)} SKU (${fmtPct(cakupan,0)}%) yang punya data volume per karton di master produk.`;
-      t += cakupan<80 ? ` Cakupan data volume belum lengkap — lengkapi data volume per SKU di master produk agar angka ini mewakili seluruh stok.` : ` Angka ini bisa dipakai bersama data pallet untuk mengecek konsistensi antara kapasitas pallet dan kapasitas ruang (m³) gudang.`;
-      return t;
-    }
-  },
   'log-sla': {
     title:'SLA Loading', zone:'Logistics Monitoring', zoneKey:'logistics',
     value:d=>d.sla_pct, fmt:v=>fmtPct(v,0)+'%', status:v=>classify(v,80,60,false),
@@ -148,28 +137,6 @@ const KPI_CONFIGS = {
       return t;
     }
   },
-  'log-wait': {
-    title:'Rata-rata Waktu Tunggu Driver', zone:'Logistics Monitoring', zoneKey:'logistics',
-    value:d=>d.avg_wait_minutes, fmt:v=>fmtHM(v), status:v=>classify(v,20,45,true),
-    rows:d=>[['Waktu Tunggu', fmtHM(d.avg_wait_minutes)],['Pengiriman Terpantau', fmtInt(d.total_shipment)]],
-    analysis:(d,cls)=>{
-      let t = `Rata-rata driver menunggu ${fmtHM(d.avg_wait_minutes)} sebelum proses loading dimulai, dari ${fmtInt(d.total_shipment)} pengiriman yang terpantau.`;
-      t += cls==='bad' ? ` Waktu tunggu ini cukup lama — kemungkinan ada bottleneck di antrian dermaga, dokumen, atau kesiapan tim muat sebelum kendaraan bisa mulai dimuat. Ini turut menambah durasi total loading di luar waktu muat itu sendiri.` :
-           cls==='warn' ? ` Sedikit di atas wajar — cek apakah ada pola waktu tertentu (jam sibuk) yang membuat driver lebih sering menunggu.` :
-           ` Waktu tunggu tergolong singkat dan tidak banyak menambah beban durasi loading total.`;
-      return t;
-    }
-  },
-  'log-volveh': {
-    title:'Rata-rata Volume Muat / Kendaraan', zone:'Logistics Monitoring', zoneKey:'logistics',
-    value:d=>d.total_vehicle_count>0 ? (d.total_volume_muat_l/d.total_vehicle_count) : 0,
-    fmt:v=>fmtM3(v), status:()=>'neutral',
-    rows:d=>[['Total Volume Dimuat', fmtM3(d.total_volume_muat_l)],['Jumlah Armada/Kendaraan', fmtInt(d.total_vehicle_count)]],
-    analysis:(d)=>{
-      const perVeh = d.total_vehicle_count>0 ? (d.total_volume_muat_l/d.total_vehicle_count) : 0;
-      return `Total ${fmtM3(d.total_volume_muat_l)} volume produk dimuat lewat ${fmtInt(d.total_vehicle_count)} unit armada/kendaraan, rata-rata ${fmtM3(perVeh)} per kendaraan. Angka ini berguna untuk mengecek apakah jenis armada yang dipakai sudah sesuai kapasitas — rata-rata yang jauh di bawah kapasitas standar kendaraan mengindikasikan pemuatan kurang optimal (kendaraan terlalu besar untuk volume yang diangkut), sementara yang mendekati/melebihi kapasitas berisiko overload.`;
-    }
-  },
   'wh-shipday': {
     title:'Rata-rata Pengiriman / Hari Kerja', zone:'Produktivitas Tim Gudang', zoneKey:'warehouse',
     value:d=>d.avg_shipment_per_day, fmt:v=>fmtPct(v), status:()=>'neutral',
@@ -181,36 +148,6 @@ const KPI_CONFIGS = {
     value:d=>d.avg_crew_size, fmt:v=>fmtPct(v), status:()=>'neutral',
     rows:d=>[['Picker', fmtPct(d.avg_picker_per_shipment)],['Muat', fmtPct(d.avg_muat_per_shipment)],['Stuffing', fmtPct(d.avg_stuffing_per_shipment)],['Total Kru', fmtPct(d.avg_crew_size)]],
     analysis:(d)=>`Rata-rata ${fmtPct(d.avg_crew_size)} orang terlibat per pengiriman — terdiri dari ${fmtPct(d.avg_picker_per_shipment)} picker, ${fmtPct(d.avg_muat_per_shipment)} tenaga muat, dan ${fmtPct(d.avg_stuffing_per_shipment)} tenaga stuffing. Kombinasi ini bisa dipakai bersama proyeksi pengiriman/hari untuk merencanakan jadwal shift harian.`
-  },
-  'wh-picker': {
-    title:'Rata-rata Tim Picker / Pengiriman', zone:'Produktivitas Tim Gudang', zoneKey:'warehouse',
-    value:d=>d.avg_picker_per_shipment, fmt:v=>fmtPct(v)+' orang', status:()=>'neutral',
-    rows:d=>[['Picker / Pengiriman', fmtPct(d.avg_picker_per_shipment)],['% dari Total Kru', fmtPct(d.avg_crew_size?d.avg_picker_per_shipment/d.avg_crew_size*100:0,0)+'%']],
-    analysis:(d)=>`Tahap picking rata-rata membutuhkan ${fmtPct(d.avg_picker_per_shipment)} orang per pengiriman, atau sekitar ${fmtPct(d.avg_crew_size?d.avg_picker_per_shipment/d.avg_crew_size*100:0,0)}% dari total ${fmtPct(d.avg_crew_size)} tenaga yang terlibat. Dipakai bersama rata-rata ${fmtPct(d.avg_shipment_per_day)} pengiriman/hari untuk memperkirakan kebutuhan picker harian.`
-  },
-  'wh-muat': {
-    title:'Rata-rata Tim Muat / Pengiriman', zone:'Produktivitas Tim Gudang', zoneKey:'warehouse',
-    value:d=>d.avg_muat_per_shipment, fmt:v=>fmtPct(v)+' orang', status:()=>'neutral',
-    rows:d=>[['Muat / Pengiriman', fmtPct(d.avg_muat_per_shipment)],['% dari Total Kru', fmtPct(d.avg_crew_size?d.avg_muat_per_shipment/d.avg_crew_size*100:0,0)+'%']],
-    analysis:(d)=>`Tahap muat rata-rata membutuhkan ${fmtPct(d.avg_muat_per_shipment)} orang per pengiriman, atau sekitar ${fmtPct(d.avg_crew_size?d.avg_muat_per_shipment/d.avg_crew_size*100:0,0)}% dari total ${fmtPct(d.avg_crew_size)} tenaga yang terlibat. Angka ini berkaitan langsung dengan kartu "Kebutuhan Kendaraan Muat / Hari" — tiap kendaraan butuh tim muat yang memadai agar SLA loading tercapai.`
-  },
-  'wh-stuffing': {
-    title:'Rata-rata Tim Stuffing / Pengiriman', zone:'Produktivitas Tim Gudang', zoneKey:'warehouse',
-    value:d=>d.avg_stuffing_per_shipment, fmt:v=>fmtPct(v)+' orang', status:()=>'neutral',
-    rows:d=>[['Stuffing / Pengiriman', fmtPct(d.avg_stuffing_per_shipment)],['% dari Total Kru', fmtPct(d.avg_crew_size?d.avg_stuffing_per_shipment/d.avg_crew_size*100:0,0)+'%']],
-    analysis:(d)=>`Tahap stuffing rata-rata membutuhkan ${fmtPct(d.avg_stuffing_per_shipment)} orang per pengiriman, atau sekitar ${fmtPct(d.avg_crew_size?d.avg_stuffing_per_shipment/d.avg_crew_size*100:0,0)}% dari total ${fmtPct(d.avg_crew_size)} tenaga yang terlibat. Bila tahap ini jadi bottleneck durasi loading, cek kartu "Loading Terlama" dan "Rata-rata Durasi Loading" di zona Logistics Monitoring.`
-  },
-  'wh-match': {
-    title:'Cakupan Pengenalan Nama Petugas', zone:'Produktivitas Tim Gudang', zoneKey:'warehouse',
-    value:d=>d.token_match_pct, fmt:v=>fmtPct(v)+'%', status:v=>classify(v,85,60,false),
-    rows:d=>[['Kemunculan Dikenali', fmtInt(d.total_kemunculan_dikenali)+' / '+fmtInt(d.total_kemunculan)],['Karyawan Terdaftar', fmtInt(d.total_karyawan_terdaftar)]],
-    analysis:(d,cls)=>{
-      let t = `Dari ${fmtInt(d.total_kemunculan)} kemunculan nama di log Logistics, ${fmtInt(d.total_kemunculan_dikenali)} (${fmtPct(d.token_match_pct)}%) berhasil dicocokkan ke salah satu dari ${fmtInt(d.total_karyawan_terdaftar)} karyawan terdaftar.`;
-      t += cls==='bad' ? ` Cakupan masih rendah — banyak nama di log kemungkinan tergabung tanpa spasi atau salah eja, sehingga produktivitas per orang belum bisa dihitung akurat untuk sebagian besar kemunculan.` :
-           cls==='warn' ? ` Masih ada celah pencocokan yang cukup besar — rapikan format input nama di aplikasi Logistics Monitoring agar cakupan naik.` :
-           ` Cakupan pencocokan sudah cukup tinggi untuk dijadikan dasar evaluasi produktivitas per orang.`;
-      return t;
-    }
   },
   'wh-top': {
     title:'Petugas Paling Aktif', zone:'Produktivitas Tim Gudang', zoneKey:'warehouse',
@@ -238,29 +175,6 @@ const KPI_CONFIGS = {
       return t;
     }
   },
-  'fefo-dead': {
-    title:'Dead Stock / Near-Expired', zone:'FEFO Monitoring', zoneKey:'fefo',
-    value:d=>d.dead_stock_pct, fmt:v=>fmtPct(v)+'%', status:v=>classify(v,2,5,true),
-    rows:d=>[['Risiko Kedaluwarsa', fmtPct(d.dead_stock_pct)+'%'],['Kategori', 'Near-Expired / Dead Stock']],
-    analysis:(d,cls)=>{
-      let t = `Proporsi dead stock / near-expired saat ini ${fmtPct(d.dead_stock_pct)}%.`;
-      t += cls==='bad' ? ` Level ini tinggi — perlu program clearance/diskon segera sebelum barang benar-benar kedaluwarsa.` :
-           cls==='warn' ? ` Mulai muncul risiko kedaluwarsa — pantau batch dengan sisa umur simpan pendek.` :
-           ` Risiko kedaluwarsa sangat terkendali berkat rotasi FEFO yang berjalan baik.`;
-      return t;
-    }
-  },
-  'fefo-trace': {
-    title:'Batch Traceability', zone:'FEFO Monitoring', zoneKey:'fefo',
-    value:d=>d.traceability_pct, fmt:v=>fmtPct(v,0)+'%', status:v=>classify(v,95,85,false),
-    rows:d=>[['Traceability', fmtPct(d.traceability_pct,0)+'%'],['Cakupan', 'Qty tercatat kode batch']],
-    analysis:(d,cls)=>{
-      let t = `Sebanyak ${fmtPct(d.traceability_pct,0)}% kuantitas tercatat lengkap dengan kode batch.`;
-      t += cls!=='good' ? ` Ada celah pencatatan batch yang perlu ditutup agar penelusuran mundur (traceability) tetap andal saat dibutuhkan (mis. recall).` :
-           ` Traceability berada pada level yang andal untuk kebutuhan audit maupun penelusuran mundur.`;
-      return t;
-    }
-  },
   'fefo-qty': {
     title:'Total Kuantitas Terkirim', zone:'FEFO Monitoring', zoneKey:'fefo',
     value:d=>d.total_qty_ctn, fmt:v=>(v/1000000).toFixed(2).replace('.',',')+' jt ctn', status:()=>'good',
@@ -275,19 +189,6 @@ const KPI_CONFIGS = {
       const cakupan = d.total_sku_terkirim ? (d.sku_dengan_volume/d.total_sku_terkirim*100) : 0;
       let t = `Total volume fisik barang yang terkirim pada periode berjalan sekitar ${fmtM3(d.total_volume_terkirim_l)}, dihitung dari ${fmtInt(d.sku_dengan_volume||0)} dari ${fmtInt(d.total_sku_terkirim||0)} SKU (${fmtPct(cakupan,0)}%) yang punya data volume per karton di master produk.`;
       t += cakupan<80 ? ` Cakupan data volume belum lengkap — lengkapi data volume per SKU di master produk agar angka ini mewakili seluruh barang terkirim.` : ` Angka ini berguna untuk estimasi kebutuhan armada/kontainer berdasarkan volume, bukan cuma jumlah karton.`;
-      return t;
-    }
-  },
-  'fefo-today-volume': {
-    title:'Volume Pengiriman Hari Ini', zone:'FEFO Monitoring', zoneKey:'fefo',
-    value:d=>d.volume_terkirim_hari_ini_l, fmt:v=>fmtM3(v), status:()=>'neutral',
-    rows:d=>[['Volume Hari Ini', fmtM3(d.volume_terkirim_hari_ini_l)],['Rata-rata Harian', fmtM3(d.rata2_volume_harian_l)]],
-    analysis:(d)=>{
-      const diff = d.volume_hari_ini_vs_rata2_pct - 100;
-      let t = `Volume pengiriman hari ini tercatat ${fmtM3(d.volume_terkirim_hari_ini_l)}, dibanding rata-rata harian ${fmtM3(d.rata2_volume_harian_l)} (${fmtPct(d.volume_hari_ini_vs_rata2_pct,0)}% dari rata-rata).`;
-      t += diff < -20 ? ` Jauh di bawah rata-rata — bisa jadi hari libur/awal minggu, atau indikasi keterlambatan proses pengiriman yang perlu dicek.` :
-           diff > 20 ? ` Di atas rata-rata harian — pastikan kapasitas loading dan armada di Logistics Monitoring cukup menampung lonjakan ini.` :
-           ` Berada dalam rentang wajar dibanding rata-rata harian periode berjalan.`;
       return t;
     }
   },
@@ -438,10 +339,6 @@ function renderStock(d, status){
   const chg = d.stock_change_pct ?? 0;
   document.getElementById('kpi-stock-totalsub').textContent = `${chg>=0?'▲':'▼'}${fmtPct(Math.abs(chg))}% vs hari sebelumnya`;
 
-  const volumeStok = d.total_volume_stok_l ?? 0;
-  document.getElementById('kpi-stock-volume').textContent = fmtM3(volumeStok);
-  document.getElementById('kpi-stock-volumesub').textContent = `${fmtInt(d.sku_dengan_volume||0)}/${fmtInt(d.total_sku)} SKU ada data volume`;
-
   const zone = document.getElementById('zone-stock');
   const badge = document.getElementById('badge-stock');
   const overallCls = (cls==='bad'||fcCls==='bad'||capCls==='bad') ? 'bad' : ((cls==='warn'||fcCls==='warn'||capCls==='warn') ? 'warn' : 'good');
@@ -482,14 +379,6 @@ function renderLogistics(d, status){
   document.getElementById('kpi-log-longest').textContent = fmtHM(d.longest_load_minutes);
   document.getElementById('kpi-log-longest').className = 'v '+longCls;
 
-  const waitCls = classify(d.avg_wait_minutes ?? 0, 20, 45, true);
-  document.getElementById('kpi-log-wait').textContent = fmtHM(d.avg_wait_minutes ?? 0);
-  document.getElementById('kpi-log-wait').className = 'v '+waitCls;
-
-  const volPerVeh = (d.total_vehicle_count>0) ? (d.total_volume_muat_l/d.total_vehicle_count) : 0;
-  document.getElementById('kpi-log-volveh').textContent = fmtM3(volPerVeh);
-  document.getElementById('kpi-log-volvehsub').textContent = `${fmtM3(d.total_volume_muat_l ?? 0)} ÷ ${fmtInt(d.total_vehicle_count ?? 0)} kendaraan`;
-
   const zone = document.getElementById('zone-logistics');
   const badge = document.getElementById('badge-logistics');
   zone.className = 'zone status-'+cls;
@@ -511,8 +400,6 @@ function renderFefo(d, status){
   document.getElementById('kpi-fefo-compliance').textContent = fmtPct(comp)+'%';
   document.getElementById('kpi-fefo-compliance').className = 'v '+cls;
 
-  document.getElementById('kpi-fefo-dead').textContent = fmtPct(d.dead_stock_pct)+'%';
-  document.getElementById('kpi-fefo-trace').textContent = fmtPct(d.traceability_pct,0)+'%';
   document.getElementById('kpi-fefo-qty').textContent = (d.total_qty_ctn/1000000).toFixed(2).replace('.',',')+' jt ctn';
 
   const nilaiTerkirim = d.total_nilai_terkirim_idr ?? 0;
@@ -520,10 +407,6 @@ function renderFefo(d, status){
   const volumeTerkirim = d.total_volume_terkirim_l ?? 0;
   document.getElementById('kpi-fefo-volume').textContent = fmtM3(volumeTerkirim);
   document.getElementById('kpi-fefo-volumesub').textContent = `${fmtInt(d.sku_dengan_volume||0)}/${fmtInt(d.total_sku_terkirim||0)} SKU ada data volume`;
-
-  const volToday = d.volume_terkirim_hari_ini_l ?? 0;
-  document.getElementById('kpi-fefo-todayvolume').textContent = fmtM3(volToday);
-  document.getElementById('kpi-fefo-todayvolumesub').textContent = `${fmtPct(d.volume_hari_ini_vs_rata2_pct ?? 0,0)}% vs rata-rata harian`;
 
   const prevNilai = d.nilai_terkirim_periode_lalu_idr ?? 0;
   const growth = prevNilai>0 ? ((nilaiTerkirim-prevNilai)/prevNilai*100) : 0;
@@ -552,14 +435,7 @@ function renderWarehouse(d, status){
 
   document.getElementById('kpi-wh-crew').textContent = fmtPct(d.avg_crew_size);
 
-  document.getElementById('kpi-wh-picker').textContent = fmtPct(d.avg_picker_per_shipment);
-  document.getElementById('kpi-wh-muat').textContent = fmtPct(d.avg_muat_per_shipment);
-  document.getElementById('kpi-wh-stuffing').textContent = fmtPct(d.avg_stuffing_per_shipment);
-
   const matchCls = classify(d.token_match_pct, 85, 60, false);
-  document.getElementById('kpi-wh-match').textContent = fmtPct(d.token_match_pct)+'%';
-  document.getElementById('kpi-wh-match').className = 'v '+matchCls;
-  document.getElementById('kpi-wh-matchsub').textContent = `dari ${fmtInt(d.total_karyawan_terdaftar)} karyawan terdaftar`;
 
   document.getElementById('kpi-wh-top').textContent = fmtInt(d.top_karyawan_jumlah);
 
@@ -689,9 +565,7 @@ let activeKpiKey = null;
 // Beberapa DOM id KPI tidak mengikuti pola "kpi-"+key persis (hyphen dibuang
 // di beberapa tempat pada HTML lama) — daftar pengecualian didaftarkan di sini
 // supaya badge tren tetap menempel ke elemen yang benar.
-const KPI_DOM_ID_OVERRIDES = {
-  'fefo-today-volume': 'kpi-fefo-todayvolume'
-};
+const KPI_DOM_ID_OVERRIDES = {};
 function domIdForKey(key){
   return KPI_DOM_ID_OVERRIDES[key] || ('kpi-' + key);
 }
@@ -955,8 +829,6 @@ function loadConfig(){
   }catch(e){ /* belum ada konfigurasi tersimpan — pakai default */ }
   applyConfigToForm();
 }
-
-document.getElementById('contractPre').textContent = JSON.stringify(DATA_CONTRACT, null, 2);
 
 (async function init(){
   loadConfig();
