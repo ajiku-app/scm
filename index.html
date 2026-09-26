@@ -329,7 +329,7 @@
       <div data-panel="armada">
       <section class="an-card" aria-labelledby="anArmadaTitle">
         <h3 id="anArmadaTitle">Kebutuhan armada: hari ini dan besok</h3>
-        <p class="an-sub">Jumlah unit untuk memuat seluruh rencana kirim di file stok terbaru. Tiap kolom armada berdiri sendiri: itu kebutuhan jika semua muatan memakai jenis armada tersebut saja, jadi jangan dijumlahkan antar kolom. Perhitungan sudah memakai kapasitas volume, batas berat, dan faktor isi dari tabel ref_armada.</p>
+        <p class="an-sub">Perkiraan jumlah unit armada yang dibutuhkan untuk mengangkut semua rencana kirim di file stok terbaru. Tiap kolom mewakili satu jenis armada dan dihitung terpisah: angkanya adalah kebutuhan JIKA seluruh muatan memakai jenis armada itu saja — jadi jangan dijumlahkan antar kolom. Perhitungan sudah mempertimbangkan kapasitas volume, batas berat, dan tingkat pengisian (faktor isi) tiap armada dari tabel referensi (ref_armada).</p>
         <div class="an-toolbar"><div class="an-seg" id="anGudangSeg" role="group" aria-label="Pilih gudang"></div><span class="an-updated" id="anAcuan"></span></div>
         <div class="an-table-wrap" id="anArmadaTable"></div>
         <ul class="an-notes" id="anArmadaNotes"></ul>
@@ -339,7 +339,7 @@
 
         <section class="an-card" aria-labelledby="anPuncakTitle">
           <h3 id="anPuncakTitle">Hari puncak vs kapasitas armada</h3>
-          <p class="an-sub">Berapa unit yang dibutuhkan pada hari rata-rata, hari padat (10% hari terpadat), dan hari puncak, berdasarkan volume kirim harian. Memakai kapasitas volume dan faktor isi dari ref_armada; baris tanpa data volume tidak terhitung, jadi angkanya batas bawah.</p>
+          <p class="an-sub">Perkiraan jumlah unit armada yang dibutuhkan di hari biasa (rata-rata), hari sibuk (10% hari dengan pengiriman terbanyak), dan hari tersibuk (puncak), dihitung dari volume kirim harian. Memakai kapasitas volume dan faktor isi dari tabel referensi (ref_armada). Catatan: baris data yang belum punya info volume tidak ikut dihitung, jadi angka ini adalah perkiraan minimal — kebutuhan sebenarnya bisa lebih tinggi.</p>
           <div class="an-toolbar"><div class="an-seg" id="pkSeg" role="group" aria-label="Jenis armada"></div></div>
           <div class="an-stats" id="pkStats"></div>
           <div class="an-table-wrap" id="pkTable"></div>
