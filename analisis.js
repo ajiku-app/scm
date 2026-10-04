@@ -2072,7 +2072,7 @@
   $('bcgBoros').addEventListener('change', function () { bcgTable.reset(); bcgTable.render(); });
 
   // ---------- menu (tab) ----------
-  var PAGES = { tower: 'page-tower', analisis: 'page-analisis', upload: 'page-upload' };
+  var PAGES = { beranda: 'page-beranda', tower: 'page-tower', analisis: 'page-analisis', upload: 'page-upload' };
   function route() {
     var h = (location.hash || '#tower').replace('#', '');
     var key = PAGES[h] ? h : 'tower';

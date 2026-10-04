@@ -275,3 +275,12 @@ Dibanding file HTML tunggal sebelumnya, versi ini:
   server (`api/kpi.js`).
 - **Mengganti** `window.storage` (API khusus artifact Claude.ai) dengan
   `localStorage` standar browser agar berjalan di hosting mana pun.
+
+## Tampilan mobile (baru)
+
+Di layar <= 820px aplikasi memakai UI mobile sesuai mockup `SCM_Control_Tower___Mockup_Mobile.html`; desktop tidak berubah.
+
+- `mobile.css` — seluruh gaya mobile. Warna latar, kartu, dan grafik **tidak didefinisikan ulang**: semuanya memakai variabel `style.css` (`--bg`, `--panel`, `--border`, `--steel`, `--good`, `--warn`, `--bad`), jadi grafik SVG tetap berwarna sama dengan aplikasi bawaan.
+- `assets/mobile.js` — bottom nav (Tower, Analisis, Upload, Profil), sheet Profil (email, Konfigurasi, Segarkan, Keluar), dan halaman **Beranda** (`#beranda`, pendaratan pertama di mobile; ketuk "SUPER APP" untuk kembali).
+- Checklist Beranda membaca tabel `fg_stock_uploads`, `logistics`, `shipments` lewat klien Supabase di browser (tunduk pada RLS). Kolom tanggal yang dipakai: `created_at`/`uploaded_at`, `tgl_date`, `tanggal_posting`; sesuaikan di array `CHECKS` bila berbeda.
+- Perubahan di file lama: `index.html` & `login.html` (tautan CSS/JS, `viewport-fit=cover`, font IBM Plex Sans) dan satu baris `PAGES` di `analisis.js`.
